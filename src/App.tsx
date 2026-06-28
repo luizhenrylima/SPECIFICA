@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
+import { StoreProvider } from "@/contexts/StoreContext";
 import Navbar from "@/components/Navbar";
 import CompareBar from "@/components/CompareBar";
 import CookieConsent from "@/components/CookieConsent";
@@ -181,12 +182,14 @@ const App = () => (
       <BrowserRouter>
         <AppErrorBoundary>
           <AuthProvider>
-            <CompareProvider>
-              <AppRoutes />
-              <CompareBar />
-              <WelcomeModal />
-              <CookieConsent />
-            </CompareProvider>
+            <StoreProvider>
+              <CompareProvider>
+                <AppRoutes />
+                <CompareBar />
+                <WelcomeModal />
+                <CookieConsent />
+              </CompareProvider>
+            </StoreProvider>
           </AuthProvider>
         </AppErrorBoundary>
       </BrowserRouter>

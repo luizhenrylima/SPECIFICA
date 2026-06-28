@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStore } from "@/contexts/StoreContext";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
@@ -33,8 +34,28 @@ const isTabletLikeDevice = () => {
   return isiPad || isAndroidTablet || (hasTouch && tabletViewport);
 };
 
+const roleLabels: Record<string, string> = {
+  super_admin: "super admin",
+  store_admin: "store admin",
+  manager: "manager",
+  seller: "seller",
+  architect: "architect",
+  finance: "finance",
+  viewer: "viewer",
+};
+
 export default function Navbar() {
   const { user, isAdmin, isManager, isSeller, isStaff, signOut } = useAuth();
+  const {
+    stores,
+    currentStore,
+    currentStoreId,
+    currentRole,
+    isSuperAdmin,
+    loading: storeLoading,
+    error: storeError,
+    setCurrentStoreId,
+  } = useStore();
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenSupported, setFullscreenSupported] = useState(false);
@@ -120,6 +141,7 @@ export default function Navbar() {
 
   const navTextClass = "shrink-0 text-[10px] uppercase tracking-[0.15em] transition-colors link-underline";
   const navIconTextClass = `flex shrink-0 items-center gap-1.5 ${navTextClass}`;
+  const roleLabel = isSuperAdmin ? roleLabels.super_admin : currentRole ? roleLabels[currentRole] ?? currentRole : "sem papel";
 
   return (
     <>
@@ -187,6 +209,37 @@ export default function Navbar() {
               Admin
             </Link>
           )}
+
+          <div className="hidden min-w-0 shrink-0 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-white/70 lg:flex">
+            {storeLoading ? (
+              <span>Carregando loja</span>
+            ) : storeError ? (
+              <span title={storeError}>Loja indisponivel</span>
+            ) : currentStore ? (
+              <>
+                {stores.length > 1 ? (
+                  <select
+                    value={currentStoreId ?? ""}
+                    onChange={event => setCurrentStoreId(event.target.value)}
+                    className="max-w-40 bg-transparent text-white outline-none [&_option]:bg-black"
+                    aria-label="Loja atual"
+                  >
+                    {stores.map(store => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="max-w-40 truncate">{currentStore.name}</span>
+                )}
+                <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+                <span className="text-white/50">{roleLabel}</span>
+              </>
+            ) : (
+              <span>Sem loja vinculada</span>
+            )}
+          </div>
 
           <div className="flex shrink-0 items-center gap-2 border-l border-white/15 pl-3">
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
