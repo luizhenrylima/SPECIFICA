@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Building2, Heart, Trash2, StickyNote, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import type { Tables } from '@/integrations/supabase/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -63,6 +64,7 @@ function favoriteBrandErrorMessage(error: { code?: string; message?: string } | 
 
 export default function FavoritesPage() {
   const { user } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [favoriteBrandIds, setFavoriteBrandIds] = useState<Set<string>>(new Set());
@@ -76,14 +78,21 @@ export default function FavoritesPage() {
   const [loadingAvailableBrands, setLoadingAvailableBrands] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      setProducts([]);
+      setBrands([]);
+      setFavoriteBrandIds(new Set());
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setFavNotes(getFavoriteNotes(user.id));
     const loadFavorites = async () => {
       setLoading(true);
       const [favoriteProductsRes, favoriteBrandsRes] = await Promise.all([
-        supabase.from('favorites').select('product_id').eq('user_id', user.id),
-        (supabase as any).from('architect_brand_favorites').select('brand_id').eq('user_id', user.id),
+        supabase.from('favorites').select('product_id').eq('user_id', user.id).eq('store_id', currentStoreId),
+        (supabase as any).from('architect_brand_favorites').select('brand_id').eq('user_id', user.id).eq('store_id', currentStoreId),
       ]);
 
       if (cancelled) return;
@@ -141,15 +150,15 @@ export default function FavoritesPage() {
     };
     loadFavorites();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, currentStoreId, storeLoading]);
 
   const removeFavorite = useCallback(async (productId: string) => {
-    if (!user) return;
-    await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', productId);
+    if (!user || !currentStoreId) return;
+    await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', productId).eq('store_id', currentStoreId);
     setProducts(prev => prev.filter((p) => p.id !== productId));
     removeFavoriteNote(user.id, productId);
     setFavNotes(getFavoriteNotes(user.id));
-  }, [user]);
+  }, [user, currentStoreId]);
 
   const loadAvailableBrands = useCallback(async () => {
     setLoadingAvailableBrands(true);
@@ -176,12 +185,16 @@ export default function FavoritesPage() {
   }, [favoriteBrandIds]);
 
   const openBrandExplorer = useCallback(() => {
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     setBrandExplorerOpen(true);
     void loadAvailableBrands();
-  }, [loadAvailableBrands]);
+  }, [loadAvailableBrands, currentStoreId]);
 
   const toggleFavoriteBrand = useCallback(async (brandId: string, brandRecord?: Brand) => {
-    if (!user) return;
+    if (!user || !currentStoreId) return;
     if (savingBrandIds.has(brandId)) return;
     const isFavorite = favoriteBrandIds.has(brandId);
     const removedBrand = brands.find(brand => brand.id === brandId) || brandRecord || null;
@@ -200,10 +213,10 @@ export default function FavoritesPage() {
     }
 
     const result = isFavorite
-      ? await (supabase as any).from('architect_brand_favorites').delete().eq('user_id', user.id).eq('brand_id', brandId)
+      ? await (supabase as any).from('architect_brand_favorites').delete().eq('user_id', user.id).eq('brand_id', brandId).eq('store_id', currentStoreId)
       : await (supabase as any)
         .from('architect_brand_favorites')
-        .upsert({ user_id: user.id, brand_id: brandId }, { onConflict: 'user_id,brand_id', ignoreDuplicates: true });
+        .insert({ user_id: user.id, brand_id: brandId, store_id: currentStoreId });
 
     setSavingBrandIds(current => {
       const next = new Set(current);
@@ -242,7 +255,7 @@ export default function FavoritesPage() {
         ? current
         : [...current, brandRecord].sort((a, b) => a.name.localeCompare(b.name)));
     }
-  }, [brands, favoriteBrandIds, savingBrandIds, user]);
+  }, [brands, favoriteBrandIds, savingBrandIds, user, currentStoreId]);
 
   const openEditNote = useCallback((prod: Product) => {
     setNoteText(favNotes[prod.id]?.note ?? '');
@@ -268,7 +281,11 @@ export default function FavoritesPage() {
           <h1 className="text-3xl font-serif text-foreground">Meus Favoritos</h1>
         </div>
 
-        {!loading && (
+        {!storeLoading && !currentStoreId ? (
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">Nenhuma loja ativa selecionada. Selecione uma loja para continuar.</p>
+          </div>
+        ) : !loading && (
           <section className="mb-12 rounded-[24px] border border-border bg-card p-5 shadow-sm md:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -331,7 +348,7 @@ export default function FavoritesPage() {
           </section>
         )}
 
-        {loading ? (
+        {!storeLoading && !currentStoreId ? null : loading ? (
           <div className="h-[40vh] flex items-center justify-center" role="status" aria-label="Carregando favoritos">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground" />
           </div>

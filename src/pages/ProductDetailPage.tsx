@@ -8,6 +8,7 @@ const BELL_ARTE_LIVING_BRAND_ID = '6fa4bb1b-141f-4191-a6e1-33a56fc7837a';
 import { useCompare } from '@/contexts/CompareContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import type { Tables } from '@/integrations/supabase/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
@@ -281,6 +282,7 @@ export default function ProductDetailPage() {
   const { productId } = useParams<{ productId: string }>();
   const location = useLocation();
   const { user, isStaff } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const { addItem: addToCompare, removeItem: removeFromCompare, isInCompare } = useCompare();
 
   // Get product from route state for instant render
@@ -365,14 +367,17 @@ export default function ProductDetailPage() {
           }) as Promise<any>,
         );
       }
-      if (user) {
+      if (user && !storeLoading && currentStoreId) {
         promises.push(
-          supabase.from('favorites').select('id').eq('user_id', user.id).eq('product_id', productId!).then(r => { if (!cancelled) setIsFavorited((r.data?.length ?? 0) > 0); }) as unknown as Promise<any>,
+          supabase.from('favorites').select('id').eq('user_id', user.id).eq('product_id', productId!).eq('store_id', currentStoreId).then(r => { if (!cancelled) setIsFavorited((r.data?.length ?? 0) > 0); }) as unknown as Promise<any>,
           (isStaff
-            ? supabase.from('projects').select(PROJECT_PICKER_SELECT)
-            : supabase.from('projects').select(PROJECT_PICKER_SELECT).eq('user_id', user.id)
+            ? supabase.from('projects').select(PROJECT_PICKER_SELECT).eq('store_id', currentStoreId)
+            : supabase.from('projects').select(PROJECT_PICKER_SELECT).eq('user_id', user.id).eq('store_id', currentStoreId)
           ).then(r => { if (!cancelled) setProjects((r.data as Project[]) ?? []); }) as unknown as Promise<any>,
         );
+      } else if (user && !storeLoading && !currentStoreId) {
+        setIsFavorited(false);
+        setProjects([]);
       }
 
       // Fetch full product if route state was partial
@@ -398,7 +403,7 @@ export default function ProductDetailPage() {
 
     fetchProduct();
     return () => { cancelled = true; };
-  }, [productId, user, isStaff]);
+  }, [productId, user, isStaff, currentStoreId, storeLoading]);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -630,20 +635,32 @@ export default function ProductDetailPage() {
 
   const toggleFavorite = useCallback(async () => {
     if (!user || !product) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     if (isFavorited) {
-      await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', product.id);
+      await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', product.id).eq('store_id', currentStoreId);
       setIsFavorited(false);
     } else {
-      await supabase.from('favorites').insert({ user_id: user.id, product_id: product.id });
+      const { error } = await supabase.from('favorites').insert({ user_id: user.id, product_id: product.id, store_id: currentStoreId } as any);
+      if (error) {
+        toast({ title: 'Erro ao favoritar', description: 'Nao foi possivel salvar este favorito para a loja atual.', variant: 'destructive' });
+        return;
+      }
       setIsFavorited(true);
       try {
         localStorage.setItem(`onboarding_last_favorite_${user.id}`, product.id);
         window.dispatchEvent(new CustomEvent('architect-onboarding:favorited', { detail: { productId: product.id } }));
       } catch { /* noop */ }
     }
-  }, [user, product, isFavorited]);
+  }, [user, product, isFavorited, currentStoreId]);
 
   const initiateAddToProject = useCallback((projId: string) => {
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     setSelectedProjectId(projId);
     setSelectedFinishId(null);
     setSelectedFinishId2(null);
@@ -654,20 +671,28 @@ export default function ProductDetailPage() {
     } else {
       addToProjectDirectly(projId, null, null, '');
     }
-  }, [brandFinishes]);
+  }, [brandFinishes, currentStoreId]);
 
   const addToProjectDirectly = useCallback(async (projId: string, finishId: string | null, finishId2: string | null, notes: string) => {
     if (!product) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     const rate = checkClientRateLimit('project:update', projId);
     if (!rate.allowed) {
       toast({ title: 'Muitas alteracoes', description: rateLimitMessage(rate), variant: 'destructive' });
       return;
     }
-    const insertData: any = { project_id: projId, product_id: product.id };
+    const insertData: any = { project_id: projId, product_id: product.id, store_id: currentStoreId };
     if (finishId) insertData.selected_finish_id = finishId;
     if (finishId2) insertData.selected_finish_id_2 = finishId2;
     if (notes.trim()) insertData.notes = sanitizePlainText(notes, 1000);
-    await supabase.from('project_items').insert(insertData);
+    const { error } = await supabase.from('project_items').insert(insertData);
+    if (error) {
+      toast({ title: 'Erro ao adicionar produto', description: 'Nao foi possivel salvar o item no projeto atual.', variant: 'destructive' });
+      return;
+    }
     try {
       window.dispatchEvent(new CustomEvent('architect-onboarding:item-added-to-project', {
         detail: { projectId: projId, productId: product.id },
@@ -676,7 +701,7 @@ export default function ProductDetailPage() {
     setShowProjectMenu(false);
     setShowFinishPicker(false);
     toast({ title: 'Produto adicionado!', description: 'O produto foi adicionado ao projeto.' });
-  }, [product]);
+  }, [product, currentStoreId]);
 
   const confirmAddWithFinish = useCallback(async () => {
     if (!selectedProjectId) return;
@@ -685,6 +710,10 @@ export default function ProductDetailPage() {
 
   const createProjectAndAdd = useCallback(async () => {
     if (!user || !product || !newProjectName.trim()) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     if (!newClientName.trim()) {
       toast({ title: 'Informe o cliente', description: 'O projeto precisa ter o nome do cliente final.', variant: 'destructive' });
       return;
@@ -702,7 +731,7 @@ export default function ProductDetailPage() {
     const projectName = parsed.data;
     const { data, error } = await (supabase as any)
       .from('projects')
-      .insert(buildNewProjectPayload(user.id, projectName, { clientName: newClientName.trim() }))
+      .insert(buildNewProjectPayload(user.id, projectName, { clientName: newClientName.trim(), storeId: currentStoreId }))
       .select(PROJECT_PICKER_SELECT)
       .single();
     if (error) {
@@ -718,7 +747,7 @@ export default function ProductDetailPage() {
     }
     setNewProjectName('');
     setNewClientName('');
-  }, [user, product, newProjectName, newClientName, initiateAddToProject]);
+  }, [user, product, newProjectName, newClientName, currentStoreId, initiateAddToProject]);
 
   const toggleFinishSelection = useCallback((finishId: string) => {
     if (selectedFinishId === finishId) {
@@ -1006,6 +1035,11 @@ export default function ProductDetailPage() {
                   {showProjectMenu && (
                     <div className="absolute right-0 top-12 w-64 bg-card border border-border rounded-lg shadow-lg p-4 z-50 animate-fade-in" role="menu">
                       <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-3">Adicionar ao Projeto</p>
+                      {!storeLoading && !currentStoreId && (
+                        <div className="mb-3 rounded-md border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
+                          Nenhuma loja ativa selecionada. Selecione uma loja para continuar.
+                        </div>
+                      )}
                       {projects.map(proj => (
                         <button
                           key={proj.id}
@@ -1034,7 +1068,7 @@ export default function ProductDetailPage() {
                         <button
                           onClick={createProjectAndAdd}
                           data-onboarding="create-and-add-project"
-                          disabled={!newProjectName.trim() || !newClientName.trim()}
+                          disabled={!newProjectName.trim() || !newClientName.trim() || !currentStoreId}
                           className="w-full mt-2 py-2 bg-primary text-primary-foreground rounded-md text-xs uppercase tracking-[0.1em] disabled:opacity-50"
                         >
                           Criar e Adicionar

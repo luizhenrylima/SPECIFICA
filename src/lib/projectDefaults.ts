@@ -6,6 +6,7 @@ type NewProjectOptions = {
   architectName?: string | null;
   consultantName?: string | null;
   customerId?: string | null;
+  storeId?: string | null;
   tags?: string[];
 };
 
@@ -20,6 +21,7 @@ export function buildNewProjectPayload(userId: string, name: string, options: Ne
     architect_name: options.architectName || null,
     consultant_name: options.consultantName || null,
     crm_customer_id: options.customerId || null,
+    store_id: options.storeId || null,
     crm_tags: options.tags || [],
     crm_status: 'novo_atendimento',
     crm_quote_status: 'sem_orcamento',

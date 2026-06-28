@@ -3,6 +3,7 @@ import { Search, X, Sparkles, ChevronDown, ChevronLeft, ChevronRight, SlidersHor
 import ProductCard from '@/components/ProductCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import type { Tables } from '@/integrations/supabase/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCatalog } from '@/hooks/useCatalog';
+import { toast } from '@/hooks/use-toast';
 import { Helmet } from 'react-helmet-async';
 
 const CatalogHelmet = () => (
@@ -310,6 +312,7 @@ function PaginationControls({
 
 export default function CatalogPage() {
   const { user } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
 
   const [scrolled, setScrolled] = useState(false);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -371,12 +374,17 @@ export default function CatalogPage() {
 
   // Load favorites
   useEffect(() => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      setFavoriteIds(new Set());
+      setFavNotes(getFavoriteNotes(user.id));
+      return;
+    }
     setFavNotes(getFavoriteNotes(user.id));
-    supabase.from('favorites').select('product_id').eq('user_id', user.id).then(({ data }) => {
+    supabase.from('favorites').select('product_id').eq('user_id', user.id).eq('store_id', currentStoreId).then(({ data }) => {
       setFavoriteIds(new Set((data ?? []).map(f => f.product_id)));
     });
-  }, [user]);
+  }, [user, currentStoreId, storeLoading]);
 
   // Filter sets (used only for UI highlighting, not for filtering)
   const selectedBrandsSet = useMemo(() => new Set(selectedBrands), [selectedBrands]);
@@ -483,11 +491,19 @@ export default function CatalogPage() {
     e.preventDefault();
     e.stopPropagation();
     if (!user) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     if (favoriteIds.has(prod.id)) {
       setFavNoteText(favNotes[prod.id]?.note ?? '');
       setFavModalProduct(prod);
     } else {
-      await supabase.from('favorites').insert({ user_id: user.id, product_id: prod.id });
+      const { error } = await supabase.from('favorites').insert({ user_id: user.id, product_id: prod.id, store_id: currentStoreId } as any);
+      if (error) {
+        toast({ title: 'Erro ao favoritar', description: 'Nao foi possivel salvar este favorito para a loja atual.', variant: 'destructive' });
+        return;
+      }
       setFavoriteIds(prev => new Set([...prev, prod.id]));
       try {
         localStorage.setItem(`onboarding_last_favorite_${user.id}`, prod.id);
@@ -496,7 +512,7 @@ export default function CatalogPage() {
       setFavNoteText('');
       setFavModalProduct(prod);
     }
-  }, [user, favoriteIds, favNotes]);
+  }, [user, currentStoreId, favoriteIds, favNotes]);
 
   const saveFavNote = useCallback(() => {
     if (!user || !favModalProduct) return;
@@ -510,8 +526,8 @@ export default function CatalogPage() {
   }, [user, favModalProduct, favNoteText]);
 
   const removeFav = useCallback(async () => {
-    if (!user || !favModalProduct) return;
-    await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', favModalProduct.id);
+    if (!user || !favModalProduct || !currentStoreId) return;
+    await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', favModalProduct.id).eq('store_id', currentStoreId);
     setFavoriteIds(prev => {
       const next = new Set(prev);
       next.delete(favModalProduct.id);
@@ -520,7 +536,7 @@ export default function CatalogPage() {
     removeFavoriteNote(user.id, favModalProduct.id);
     setFavNotes(getFavoriteNotes(user.id));
     setFavModalProduct(null);
-  }, [user, favModalProduct]);
+  }, [user, favModalProduct, currentStoreId]);
 
   const renderProductCard = useCallback((prod: Product, isFeatured = false) => {
     const isFav = favoriteIds.has(prod.id);

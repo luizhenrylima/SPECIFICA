@@ -1,6 +1,7 @@
 import { useCompare } from '@/contexts/CompareContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Check, FolderPlus, X } from 'lucide-react';
@@ -15,6 +16,7 @@ export default function ComparePage() {
   const { items, removeItem } = useCompare();
   const navigate = useNavigate();
   const { user, isStaff } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
@@ -22,29 +24,45 @@ export default function ComparePage() {
   const [newClientName, setNewClientName] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      setProjects([]);
+      return;
+    }
     const query = isStaff
-      ? supabase.from('projects').select(PROJECT_PICKER_FIELDS)
-      : supabase.from('projects').select(PROJECT_PICKER_FIELDS).eq('user_id', user.id);
+      ? supabase.from('projects').select(PROJECT_PICKER_FIELDS).eq('store_id', currentStoreId)
+      : supabase.from('projects').select(PROJECT_PICKER_FIELDS).eq('user_id', user.id).eq('store_id', currentStoreId);
     query.then(r => setProjects(r.data ?? []));
-  }, [user, isStaff]);
+  }, [user, isStaff, currentStoreId, storeLoading]);
 
   const addChosenToProject = useCallback(async (projId: string) => {
     if (!chosenId) return;
-    await supabase.from('project_items').insert({ project_id: projId, product_id: chosenId });
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
+    const { error } = await supabase.from('project_items').insert({ project_id: projId, product_id: chosenId, store_id: currentStoreId } as any);
+    if (error) {
+      toast({ title: 'Erro ao adicionar produto', description: 'Nao foi possivel salvar o item no projeto atual.', variant: 'destructive' });
+      return;
+    }
     toast({ title: 'Produto adicionado!', description: 'O produto escolhido foi adicionado ao projeto.' });
     setShowProjectPicker(false);
-  }, [chosenId]);
+  }, [chosenId, currentStoreId]);
 
   const createAndAdd = useCallback(async () => {
     if (!user || !newProjectName.trim() || !newClientName.trim() || !chosenId) {
       toast({ title: 'Informe projeto e cliente', description: 'O nome do cliente final e obrigatorio.', variant: 'destructive' });
       return;
     }
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     const projectName = newProjectName.trim();
     const { data, error } = await (supabase as any)
       .from('projects')
-      .insert(buildNewProjectPayload(user.id, projectName, { clientName: newClientName.trim() }))
+      .insert(buildNewProjectPayload(user.id, projectName, { clientName: newClientName.trim(), storeId: currentStoreId }))
       .select(PROJECT_PICKER_FIELDS)
       .single();
     if (error) {
@@ -57,7 +75,7 @@ export default function ComparePage() {
     }
     setNewProjectName('');
     setNewClientName('');
-  }, [user, newProjectName, newClientName, chosenId, addChosenToProject]);
+  }, [user, newProjectName, newClientName, chosenId, currentStoreId, addChosenToProject]);
 
   if (items.length < 2) {
     return (
@@ -181,6 +199,11 @@ export default function ComparePage() {
         <div className="fixed inset-0 z-50 bg-foreground/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowProjectPicker(false)}>
           <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             <h3 className="text-sm font-serif text-foreground mb-4">Adicionar ao Projeto</h3>
+            {!storeLoading && !currentStoreId && (
+              <div className="mb-4 rounded-lg border border-border bg-secondary/40 p-3 text-sm text-muted-foreground">
+                Nenhuma loja ativa selecionada. Selecione uma loja para continuar.
+              </div>
+            )}
             <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
               {projects.map(p => (
                 <button
@@ -209,7 +232,7 @@ export default function ComparePage() {
               />
               <button
                 onClick={createAndAdd}
-                disabled={!newProjectName.trim() || !newClientName.trim()}
+                disabled={!newProjectName.trim() || !newClientName.trim() || !currentStoreId}
                 className="w-full py-2 bg-primary text-primary-foreground rounded-md text-xs uppercase tracking-wider disabled:opacity-40"
               >
                 Criar e Adicionar

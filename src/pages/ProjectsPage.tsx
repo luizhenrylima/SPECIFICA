@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Pencil, Plus, Trash2, X, Share2, Check, FileText, StickyNote, Upload, DollarSign, MapPin, ImageIcon, FolderOpen, GripVertical, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -99,6 +100,7 @@ interface CrmCustomerOption {
 
 export default function ProjectsPage() {
   const { user, isAdmin, isSeller, isStaff } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectItems, setProjectItems] = useState<ProjectItemWithDetails[]>([]);
@@ -152,11 +154,26 @@ export default function ProjectsPage() {
   const envImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      setProjects([]);
+      setSelectedProject(null);
+      setProjectItems([]);
+      setEnvImages([]);
+      setLoading(false);
+      return;
+    }
     const fetchProjects = async () => {
-      let query = supabase.from('projects').select(PROJECT_SELECT_FIELDS).order('created_at', { ascending: false });
+      let query = supabase.from('projects').select(PROJECT_SELECT_FIELDS).eq('store_id', currentStoreId).order('created_at', { ascending: false });
       if (!isStaff) query = query.eq('user_id', user.id);
-      if (isSeller && !isAdmin) query = (supabase.from('projects').select(PROJECT_SELECT_FIELDS).or(`seller_user_id.eq.${user.id},user_id.eq.${user.id}`).order('created_at', { ascending: false }) as any);
+      if (isSeller && !isAdmin) {
+        query = (supabase
+          .from('projects')
+          .select(PROJECT_SELECT_FIELDS)
+          .eq('store_id', currentStoreId)
+          .or(`seller_user_id.eq.${user.id},user_id.eq.${user.id}`)
+          .order('created_at', { ascending: false }) as any);
+      }
 
       const { data } = await query;
       const fetchedProjects = (data as any as Project[]) || [];
@@ -177,10 +194,10 @@ export default function ProjectsPage() {
       setLoading(false);
     };
     fetchProjects();
-  }, [user, isStaff, isSeller, isAdmin]);
+  }, [user, isStaff, isSeller, isAdmin, currentStoreId, storeLoading]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || storeLoading || !currentStoreId) return;
 
     const fetchCommercialContext = async () => {
       const [{ data: profile }, { data: profiles }, { data: customers }] = await Promise.all([
@@ -199,20 +216,25 @@ export default function ProjectsPage() {
     };
 
     void fetchCommercialContext();
-  }, [user, isSeller]);
+  }, [user, isSeller, currentStoreId, storeLoading]);
 
   const loadProjectItems = useCallback(async (project: Project) => {
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     setSelectedProject(project);
     const [{ data: itemsData, error: itemsError }, { data: envImgs }] = await Promise.all([
-      supabase.from('project_items').select('id, product_id, notes, selected_finish_id, selected_finish_id_2, environment_label, price, discount_price, quantity, presentation_image_2_index, presentation_dimensions').eq('project_id', project.id),
-      supabase.from('project_environment_images').select('id, project_id, environment_name, image_url, display_order').eq('project_id', project.id).order('display_order'),
+      supabase.from('project_items').select('id, product_id, notes, selected_finish_id, selected_finish_id_2, environment_label, price, discount_price, quantity, presentation_image_2_index, presentation_dimensions').eq('project_id', project.id).eq('store_id', currentStoreId),
+      supabase.from('project_environment_images').select('id, project_id, environment_name, image_url, display_order').eq('project_id', project.id).eq('store_id', currentStoreId).order('display_order'),
     ]);
     let items = itemsData;
     if (itemsError && /presentation_dimensions/i.test(itemsError.message)) {
       const { data: legacyItems } = await supabase
         .from('project_items')
         .select('id, product_id, notes, selected_finish_id, selected_finish_id_2, environment_label, price, discount_price, quantity, presentation_image_2_index')
-        .eq('project_id', project.id);
+        .eq('project_id', project.id)
+        .eq('store_id', currentStoreId);
       items = legacyItems;
     } else if (itemsError) {
       console.error('Project items load error:', itemsError);
@@ -257,10 +279,14 @@ export default function ProjectsPage() {
     });
 
     setProjectItems(enriched);
-  }, []);
+  }, [currentStoreId]);
 
   const createProject = async () => {
     if (!user) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     const projectName = (newProjectInputRef.current?.value || newName || '').trim();
     const parsed = projectNameSchema.safeParse(projectName);
     if (!parsed.success) {
@@ -301,6 +327,7 @@ export default function ProjectsPage() {
           architectProfileId,
           architectName,
           customerId: selectedCustomer?.id || null,
+          storeId: currentStoreId,
         }))
         .select(PROJECT_SELECT_FIELDS)
         .single();
@@ -328,7 +355,7 @@ export default function ProjectsPage() {
   };
 
   const deleteProject = async (id: string) => {
-    if (!user) return;
+    if (!user || !currentStoreId) return;
     const project = projects.find(item => item.id === id);
     if (!project) return;
     if (!window.confirm('Tem certeza que deseja arquivar este projeto? O historico sera preservado.')) return;
@@ -336,7 +363,8 @@ export default function ProjectsPage() {
     const { error } = await (supabase as any)
       .from('projects')
       .update({ archived_at: new Date().toISOString(), archived_by: user.id })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('store_id', currentStoreId);
     if (error) {
       toast({ title: 'Erro ao arquivar projeto', description: 'Verifique suas permissoes e tente novamente.', variant: 'destructive' });
       return;
@@ -349,8 +377,9 @@ export default function ProjectsPage() {
   };
 
   const removeItem = async (itemId: string) => {
+    if (!currentStoreId) return;
     if (!window.confirm('Remover este item do projeto?')) return;
-    await supabase.from('project_items').delete().eq('id', itemId);
+    await supabase.from('project_items').delete().eq('id', itemId).eq('store_id', currentStoreId);
     setProjectItems(prev => prev.filter(i => i.id !== itemId));
   };
 
@@ -360,7 +389,9 @@ export default function ProjectsPage() {
     if (!token) {
       token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
         .map(b => b.toString(16).padStart(2, '0')).join('');
-      await supabase.from('projects').update({ share_token: token } as any).eq('id', selectedProject.id);
+      let shareQuery = supabase.from('projects').update({ share_token: token } as any).eq('id', selectedProject.id);
+      if (currentStoreId) shareQuery = shareQuery.eq('store_id', currentStoreId);
+      await shareQuery;
       setSelectedProject({ ...selectedProject, share_token: token });
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, share_token: token } as any : p));
     }
@@ -376,8 +407,8 @@ export default function ProjectsPage() {
   };
 
   const saveNote = async () => {
-    if (!editingNote) return;
-    await supabase.from('project_items').update({ notes: noteText.trim() || null } as any).eq('id', editingNote.id);
+    if (!editingNote || !currentStoreId) return;
+    await supabase.from('project_items').update({ notes: noteText.trim() || null } as any).eq('id', editingNote.id).eq('store_id', currentStoreId);
     setProjectItems(prev => prev.map(i => i.id === editingNote.id ? { ...i, notes: noteText.trim() || null } : i));
     setEditingNote(null);
   };
@@ -419,7 +450,7 @@ export default function ProjectsPage() {
   };
 
   const saveProjectDetails = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !currentStoreId) return;
     const parsed = projectDetailsSchema.safeParse(projectForm);
     if (!parsed.success) {
       toast({ title: 'Confira os dados do cliente', description: firstZodMessage(parsed.error), variant: 'destructive' });
@@ -481,7 +512,7 @@ export default function ProjectsPage() {
       crm_customer_id: crmCustomerId,
       crm_architect_profile_id: architectProfileId,
       seller_user_id: selectedProject.seller_user_id || selectedProject.user_id,
-    }).eq('id', selectedProject.id);
+    }).eq('id', selectedProject.id).eq('store_id', currentStoreId);
     const updated = {
       ...selectedProject,
       client_name: clientName || null,
@@ -510,7 +541,7 @@ export default function ProjectsPage() {
   };
 
   const saveItemDetails = async () => {
-    if (!editingItem) return;
+    if (!editingItem || !currentStoreId) return;
     const normalized = {
       environment_label: itemForm.environment_label,
       price: itemForm.price ? Number(itemForm.price.replace(',', '.')) : null,
@@ -537,11 +568,11 @@ export default function ProjectsPage() {
       presentation_image_2_index: parsed.data.presentation_image_2_index,
       presentation_dimensions: sanitizePlainText(parsed.data.presentation_dimensions || '', 160) || null,
     };
-    const { error } = await supabase.from('project_items').update(updates).eq('id', editingItem.id);
+    const { error } = await supabase.from('project_items').update(updates).eq('id', editingItem.id).eq('store_id', currentStoreId);
     let savedUpdates = updates;
     if (error && /presentation_dimensions/i.test(error.message)) {
       const { presentation_dimensions, ...legacyUpdates } = updates;
-      const { error: legacyError } = await supabase.from('project_items').update(legacyUpdates).eq('id', editingItem.id);
+      const { error: legacyError } = await supabase.from('project_items').update(legacyUpdates).eq('id', editingItem.id).eq('store_id', currentStoreId);
       if (legacyError) {
         toast({ title: 'Erro ao atualizar item', description: 'Tente novamente.', variant: 'destructive' });
         return;
@@ -558,6 +589,7 @@ export default function ProjectsPage() {
   };
 
   const moveItemToEnvironment = async (itemId: string, envName: string) => {
+    if (!currentStoreId) return;
     const nextEnv = envName === 'Sem ambiente' ? null : envName;
     const previousItems = projectItems;
 
@@ -570,7 +602,8 @@ export default function ProjectsPage() {
     const { error } = await supabase
       .from('project_items')
       .update({ environment_label: nextEnv } as any)
-      .eq('id', itemId);
+      .eq('id', itemId)
+      .eq('store_id', currentStoreId);
 
     if (error) {
       setProjectItems(previousItems);
@@ -579,7 +612,7 @@ export default function ProjectsPage() {
   };
 
   const handleEnvImageUpload = async (envName: string, file: File) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !currentStoreId) return;
     const parsed = uploadFileSchema.safeParse({ name: file.name, size: file.size, type: file.type });
     if (!parsed.success) {
       toast({ title: 'Arquivo invalido', description: firstZodMessage(parsed.error), variant: 'destructive' });
@@ -601,13 +634,14 @@ export default function ProjectsPage() {
 
       const existing = envImages.find(e => e.environment_name === envName);
       if (existing) {
-        await supabase.from('project_environment_images').update({ image_url: imageUrl } as any).eq('id', existing.id);
+        await supabase.from('project_environment_images').update({ image_url: imageUrl } as any).eq('id', existing.id).eq('store_id', currentStoreId);
         setEnvImages(prev => prev.map(e => e.id === existing.id ? { ...e, image_url: imageUrl } : e));
       } else {
         const { data } = await supabase.from('project_environment_images').insert({
           project_id: selectedProject.id,
           environment_name: envName,
           image_url: imageUrl,
+          store_id: currentStoreId,
         } as any).select().single();
         if (data) setEnvImages(prev => [...prev, data as any as EnvImage]);
       }
@@ -1177,6 +1211,12 @@ export default function ProjectsPage() {
           <h1 className="text-2xl md:text-3xl font-serif text-foreground">{pageTitle}</h1>
         </div>
 
+        {!storeLoading && !currentStoreId ? (
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">Nenhuma loja ativa selecionada. Selecione uma loja para continuar.</p>
+          </div>
+        ) : (
+          <>
         {/* Create Project */}
         <form
           className="mb-8 grid gap-3 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
@@ -1542,6 +1582,8 @@ export default function ProjectsPage() {
               )}
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

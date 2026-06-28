@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, TrendingUp, Users, Package, ArrowLeft, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -26,6 +27,7 @@ interface ProductPair {
 
 export default function AdminAnalyticsPage() {
   const { isAdmin } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [productCounts, setProductCounts] = useState<ProductCount[]>([]);
@@ -38,16 +40,26 @@ export default function AdminAnalyticsPage() {
       navigate('/');
       return;
     }
+    if (storeLoading) return;
     loadAnalytics();
-  }, [isAdmin]);
+  }, [isAdmin, currentStoreId, storeLoading]);
 
   const loadAnalytics = async () => {
+    if (!currentStoreId) {
+      setProductCounts([]);
+      setProductPairs([]);
+      setTotalProjects(0);
+      setTotalItems(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       // Fetch all project items with product and brand info
-      const { data: items } = await supabase
+      const { data: items } = await (supabase as any)
         .from('project_items')
-        .select('product_id, project_id');
+        .select('product_id, project_id')
+        .eq('store_id', currentStoreId);
 
       const { data: products } = await supabase
         .from('products')
@@ -57,9 +69,10 @@ export default function AdminAnalyticsPage() {
         .from('brands')
         .select('id, name');
 
-      const { data: projects } = await supabase
+      const { data: projects } = await (supabase as any)
         .from('projects')
-        .select('id');
+        .select('id')
+        .eq('store_id', currentStoreId);
 
       if (!items || !products || !brands) return;
 
@@ -179,8 +192,14 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
+        {!currentStoreId && (
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">Nenhuma loja ativa selecionada. Selecione uma loja para continuar.</p>
+          </div>
+        )}
+
         {/* Stats cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        {currentStoreId && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           <div className="bg-card border border-border rounded-xl p-5 flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
               <Users size={18} className="text-accent" />
@@ -208,10 +227,10 @@ export default function AdminAnalyticsPage() {
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Produtos Únicos</p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Chart - Top Products */}
-        {chartData.length > 0 && (
+        {currentStoreId && chartData.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-6 mb-10">
             <div className="flex items-center gap-2 mb-6">
               <BarChart3 size={18} className="text-accent" />
@@ -252,7 +271,7 @@ export default function AdminAnalyticsPage() {
         )}
 
         {/* Table - Full ranking */}
-        <div className="bg-card border border-border rounded-xl p-6 mb-10">
+        {currentStoreId && <div className="bg-card border border-border rounded-xl p-6 mb-10">
           <div className="flex items-center gap-2 mb-6">
             <Package size={18} className="text-primary" />
             <h2 className="text-sm font-medium uppercase tracking-wider text-foreground">Ranking completo de especificações</h2>
@@ -288,10 +307,10 @@ export default function AdminAnalyticsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </div>}
 
         {/* Product Combinations */}
-        <div className="bg-card border border-border rounded-xl p-6">
+        {currentStoreId && <div className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp size={18} className="text-accent" />
             <h2 className="text-sm font-medium uppercase tracking-wider text-foreground">Combinações frequentes</h2>
@@ -328,7 +347,7 @@ export default function AdminAnalyticsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );
