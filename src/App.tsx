@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
@@ -139,7 +139,12 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
 
 function AuthRoute() {
   const { user } = useAuth();
-  return user ? <Navigate to="/" replace /> : <AuthPage />;
+  const location = useLocation();
+  const isPasswordRecovery =
+    new URLSearchParams(location.search).get("reset") === "password" ||
+    location.hash.includes("type=recovery");
+
+  return user && !isPasswordRecovery ? <Navigate to="/" replace /> : <AuthPage />;
 }
 
 function AppRoutes() {

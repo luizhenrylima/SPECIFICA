@@ -14,6 +14,7 @@ const PREFIX = "acervo-rate-limit";
 const limits: Record<string, { max: number; windowMs: number; blockMs: number }> = {
   "auth:login": { max: 6, windowMs: 5 * 60_000, blockMs: 10 * 60_000 },
   "auth:register": { max: 3, windowMs: 10 * 60_000, blockMs: 20 * 60_000 },
+  "auth:password-reset": { max: 3, windowMs: 10 * 60_000, blockMs: 20 * 60_000 },
   "project:create": { max: 12, windowMs: 10 * 60_000, blockMs: 10 * 60_000 },
   "project:update": { max: 50, windowMs: 5 * 60_000, blockMs: 10 * 60_000 },
   "crm:update-status": { max: 60, windowMs: 5 * 60_000, blockMs: 10 * 60_000 },
