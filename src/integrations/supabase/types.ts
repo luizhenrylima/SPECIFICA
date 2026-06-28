@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      architect_brand_favorites: {
+        Row: {
+          brand_id: string
+          created_at: string
+          store_id: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          store_id: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          store_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "architect_brand_favorites_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "architect_brand_favorites_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_role: string | null
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          store_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          store_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_role?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_categories: {
         Row: {
           brand_id: string
@@ -54,6 +134,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_hidden: boolean
           logo_url: string | null
           name: string
           segment: string
@@ -61,6 +142,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_hidden?: boolean
           logo_url?: string | null
           name: string
           segment: string
@@ -68,6 +150,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_hidden?: boolean
           logo_url?: string | null
           name?: string
           segment?: string
@@ -89,6 +172,989 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      crm_agenda_events: {
+        Row: {
+          architect_profile_id: string | null
+          completed_at: string | null
+          created_at: string
+          customer_id: string | null
+          event_type: string
+          id: string
+          location: string | null
+          notes: string | null
+          notify_at: string | null
+          project_id: string | null
+          scheduled_at: string
+          seller_user_id: string
+          status: string
+          store_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          architect_profile_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          notify_at?: string | null
+          project_id?: string | null
+          scheduled_at: string
+          seller_user_id: string
+          status?: string
+          store_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          architect_profile_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          event_type?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          notify_at?: string | null
+          project_id?: string | null
+          scheduled_at?: string
+          seller_user_id?: string
+          status?: string
+          store_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_agenda_events_architect_profile_id_fkey"
+            columns: ["architect_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_agenda_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_agenda_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_agenda_events_seller_user_id_fkey"
+            columns: ["seller_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_agenda_events_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_brand_delivery_terms: {
+        Row: {
+          brand_id: string
+          created_at: string
+          delivery_days: number
+          followup_days_before: number
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          delivery_days?: number
+          followup_days_before?: number
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          delivery_days?: number
+          followup_days_before?: number
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_brand_delivery_terms_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_customers: {
+        Row: {
+          address: string | null
+          architect_name: string | null
+          architect_profile_id: string | null
+          archived_at: string | null
+          archived_by: string | null
+          birth_date: string | null
+          city: string | null
+          construction_address: string | null
+          construction_deadline: string | null
+          construction_status: string | null
+          created_at: string
+          created_by: string | null
+          customer_type: string
+          desired_rooms: string[]
+          desired_style: string | null
+          email: string | null
+          id: string
+          investment_range: string | null
+          lead_source: string | null
+          move_in_deadline: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          purchase_deadline: string | null
+          purchase_reason: string | null
+          seller_user_id: string
+          status: string
+          store_id: string | null
+          store_name: string | null
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+          urgency_level: string
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          architect_name?: string | null
+          architect_profile_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          birth_date?: string | null
+          city?: string | null
+          construction_address?: string | null
+          construction_deadline?: string | null
+          construction_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_type?: string
+          desired_rooms?: string[]
+          desired_style?: string | null
+          email?: string | null
+          id?: string
+          investment_range?: string | null
+          lead_source?: string | null
+          move_in_deadline?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          purchase_deadline?: string | null
+          purchase_reason?: string | null
+          seller_user_id: string
+          status?: string
+          store_id?: string | null
+          store_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          urgency_level?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          architect_name?: string | null
+          architect_profile_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          birth_date?: string | null
+          city?: string | null
+          construction_address?: string | null
+          construction_deadline?: string | null
+          construction_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_type?: string
+          desired_rooms?: string[]
+          desired_style?: string | null
+          email?: string | null
+          id?: string
+          investment_range?: string | null
+          lead_source?: string | null
+          move_in_deadline?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          purchase_deadline?: string | null
+          purchase_reason?: string | null
+          seller_user_id?: string
+          status?: string
+          store_id?: string | null
+          store_name?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          urgency_level?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_customers_architect_profile_id_fkey"
+            columns: ["architect_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_customers_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_interactions: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          description: string
+          id: string
+          interaction_type: string
+          next_action: string | null
+          next_followup_at: string | null
+          project_id: string | null
+          store_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          description: string
+          id?: string
+          interaction_type?: string
+          next_action?: string | null
+          next_followup_at?: string | null
+          project_id?: string | null
+          store_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          description?: string
+          id?: string
+          interaction_type?: string
+          next_action?: string | null
+          next_followup_at?: string | null
+          project_id?: string | null
+          store_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_interactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_interactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_interactions_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_leads: {
+        Row: {
+          architect_profile_id: string | null
+          archived_at: string | null
+          archived_by: string | null
+          converted_project_id: string | null
+          created_at: string
+          created_by: string | null
+          crm_status: string
+          crm_tags: string[]
+          customer_id: string | null
+          id: string
+          lead_name: string
+          lead_source: string | null
+          next_action: string | null
+          next_followup_at: string | null
+          notes: string | null
+          phone: string | null
+          project_id: string | null
+          seller_user_id: string
+          status: string
+          store_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          architect_profile_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          converted_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          crm_status?: string
+          crm_tags?: string[]
+          customer_id?: string | null
+          id?: string
+          lead_name: string
+          lead_source?: string | null
+          next_action?: string | null
+          next_followup_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_id?: string | null
+          seller_user_id: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          architect_profile_id?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          converted_project_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          crm_status?: string
+          crm_tags?: string[]
+          customer_id?: string | null
+          id?: string
+          lead_name?: string
+          lead_source?: string | null
+          next_action?: string | null
+          next_followup_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_id?: string | null
+          seller_user_id?: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_architect_profile_id_fkey"
+            columns: ["architect_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_leads_converted_project_id_fkey"
+            columns: ["converted_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_leads_seller_user_id_fkey"
+            columns: ["seller_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_leads_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_order_approvals: {
+        Row: {
+          approval_type: string
+          approved_at: string | null
+          approved_by: string | null
+          confirmation_text: string | null
+          created_at: string
+          id: string
+          order_id: string | null
+          project_id: string | null
+          rejected_reason: string | null
+          session_info: Json | null
+          status: string
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approval_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          confirmation_text?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          project_id?: string | null
+          rejected_reason?: string | null
+          session_info?: Json | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          confirmation_text?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          project_id?: string | null
+          rejected_reason?: string | null
+          session_info?: Json | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_order_approvals_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "crm_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_order_approvals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_order_approvals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_orders: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          brand_confirmed_at: string | null
+          brand_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          delivered_at: string | null
+          expected_deadline: string | null
+          id: string
+          invoiced_at: string | null
+          notes: string | null
+          project_id: string
+          quote_id: string | null
+          real_deadline: string | null
+          received_at: string | null
+          risk_level: string
+          seller_user_id: string
+          sent_to_brand_at: string | null
+          status: string
+          store_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          brand_confirmed_at?: string | null
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          delivered_at?: string | null
+          expected_deadline?: string | null
+          id?: string
+          invoiced_at?: string | null
+          notes?: string | null
+          project_id: string
+          quote_id?: string | null
+          real_deadline?: string | null
+          received_at?: string | null
+          risk_level?: string
+          seller_user_id: string
+          sent_to_brand_at?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          brand_confirmed_at?: string | null
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          delivered_at?: string | null
+          expected_deadline?: string | null
+          id?: string
+          invoiced_at?: string | null
+          notes?: string | null
+          project_id?: string
+          quote_id?: string | null
+          real_deadline?: string | null
+          received_at?: string | null
+          risk_level?: string
+          seller_user_id?: string
+          sent_to_brand_at?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_orders_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_orders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "crm_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_quotes: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          discount_value: number
+          final_value: number
+          gross_value: number
+          id: string
+          notes: string | null
+          payment_terms: string | null
+          project_id: string
+          seller_user_id: string
+          status: string
+          store_id: string | null
+          updated_at: string
+          updated_by: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          discount_value?: number
+          final_value?: number
+          gross_value?: number
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id: string
+          seller_user_id: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          discount_value?: number
+          final_value?: number
+          gross_value?: number
+          id?: string
+          notes?: string | null
+          payment_terms?: string | null
+          project_id?: string
+          seller_user_id?: string
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_quotes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_quotes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_sales_targets: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          period_month: string
+          seller_user_id: string | null
+          store_id: string | null
+          target_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          period_month: string
+          seller_user_id?: string | null
+          store_id?: string | null
+          target_value?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          period_month?: string
+          seller_user_id?: string | null
+          store_id?: string | null
+          target_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_sales_targets_seller_user_id_fkey"
+            columns: ["seller_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_sales_targets_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_support_tickets: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          customer_id: string | null
+          description: string
+          due_date: string | null
+          id: string
+          impact: string | null
+          issue_type: string
+          order_id: string | null
+          product_id: string | null
+          project_id: string | null
+          responsible_user_id: string | null
+          status: string
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description: string
+          due_date?: string | null
+          id?: string
+          impact?: string | null
+          issue_type: string
+          order_id?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          responsible_user_id?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          impact?: string | null
+          issue_type?: string
+          order_id?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          responsible_user_id?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_support_tickets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_support_tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_support_tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "crm_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_support_tickets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_support_tickets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_support_tickets_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_technical_notebooks: {
+        Row: {
+          created_at: string
+          generated_by: string
+          id: string
+          project_id: string
+          signed_at: string | null
+          signed_by: string | null
+          snapshot: Json
+          status: string
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          generated_by: string
+          id?: string
+          project_id: string
+          signed_at?: string | null
+          signed_by?: string | null
+          snapshot?: Json
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          generated_by?: string
+          id?: string
+          project_id?: string
+          signed_at?: string | null
+          signed_by?: string | null
+          snapshot?: Json
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_technical_notebooks_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "crm_technical_notebooks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_technical_notebooks_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_collection_products: {
+        Row: {
+          collection_id: string
+          created_at: string
+          display_order: number
+          id: string
+          product_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          product_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curated_collection_products_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "curated_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curated_collection_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curated_collections: {
+        Row: {
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -160,18 +1226,21 @@ export type Database = {
           created_at: string
           id: string
           product_id: string
+          store_id: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           product_id: string
+          store_id: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           product_id?: string
+          store_id?: string
           user_id?: string
         }
         Relationships: [
@@ -180,6 +1249,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -342,6 +1418,7 @@ export type Database = {
           event_type: string
           id: string
           preview_image_url: string | null
+          store_id: string | null
           title: string
           updated_at: string
         }
@@ -352,6 +1429,7 @@ export type Database = {
           event_type?: string
           id?: string
           preview_image_url?: string | null
+          store_id?: string | null
           title: string
           updated_at?: string
         }
@@ -362,7 +1440,67 @@ export type Database = {
           event_type?: string
           id?: string
           preview_image_url?: string | null
+          store_id?: string | null
           title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_events_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          has_advanced_reports: boolean
+          has_custom_branding: boolean
+          has_financial_module: boolean
+          id: string
+          max_architects: number | null
+          max_products: number | null
+          max_storage_mb: number | null
+          max_users: number | null
+          name: string
+          price_monthly: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          has_advanced_reports?: boolean
+          has_custom_branding?: boolean
+          has_financial_module?: boolean
+          id?: string
+          max_architects?: number | null
+          max_products?: number | null
+          max_storage_mb?: number | null
+          max_users?: number | null
+          name: string
+          price_monthly?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          has_advanced_reports?: boolean
+          has_custom_branding?: boolean
+          has_financial_module?: boolean
+          id?: string
+          max_architects?: number | null
+          max_products?: number | null
+          max_storage_mb?: number | null
+          max_users?: number | null
+          name?: string
+          price_monthly?: number | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -452,6 +1590,47 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_finish_markup_rules: {
+        Row: {
+          brand_id: string
+          created_at: string
+          finish_key: string
+          finish_label: string
+          id: string
+          is_active: boolean
+          markup_percent: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          finish_key: string
+          finish_label: string
+          id?: string
+          is_active?: boolean
+          markup_percent?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          finish_key?: string
+          finish_label?: string
+          id?: string
+          is_active?: boolean
+          markup_percent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_finish_markup_rules_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "price_brands"
             referencedColumns: ["id"]
           },
         ]
@@ -748,6 +1927,45 @@ export type Database = {
           },
         ]
       }
+      product_composition_suggestions: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          product_id: string
+          suggested_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          product_id: string
+          suggested_product_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          product_id?: string
+          suggested_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_composition_suggestions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_composition_suggestions_suggested_product_id_fkey"
+            columns: ["suggested_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_downloads: {
         Row: {
           created_at: string
@@ -907,6 +2125,7 @@ export type Database = {
           finish_link: string | null
           id: string
           images: string[] | null
+          is_hidden: boolean
           name: string
           tech_sheet: string | null
         }
@@ -922,6 +2141,7 @@ export type Database = {
           finish_link?: string | null
           id?: string
           images?: string[] | null
+          is_hidden?: boolean
           name: string
           tech_sheet?: string | null
         }
@@ -937,6 +2157,7 @@ export type Database = {
           finish_link?: string | null
           id?: string
           images?: string[] | null
+          is_hidden?: boolean
           name?: string
           tech_sheet?: string | null
         }
@@ -959,28 +2180,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active: boolean
           approved: boolean
+          birth_date: string | null
           created_at: string
+          email: string | null
           full_name: string | null
+          global_role: string
           id: string
+          last_login_at: string | null
+          phone: string | null
           seller_id: string | null
           tenant_id: string | null
           user_id: string
         }
         Insert: {
+          active?: boolean
           approved?: boolean
+          birth_date?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
+          global_role?: string
           id?: string
+          last_login_at?: string | null
+          phone?: string | null
           seller_id?: string | null
           tenant_id?: string | null
           user_id: string
         }
         Update: {
+          active?: boolean
           approved?: boolean
+          birth_date?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
+          global_role?: string
           id?: string
+          last_login_at?: string | null
+          phone?: string | null
           seller_id?: string | null
           tenant_id?: string | null
           user_id?: string
@@ -1010,6 +2249,7 @@ export type Database = {
           id: string
           image_url: string
           project_id: string
+          store_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1018,6 +2258,7 @@ export type Database = {
           id?: string
           image_url: string
           project_id: string
+          store_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1026,6 +2267,7 @@ export type Database = {
           id?: string
           image_url?: string
           project_id?: string
+          store_id?: string | null
         }
         Relationships: [
           {
@@ -1033,6 +2275,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_environment_images_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -1044,6 +2293,7 @@ export type Database = {
           created_at: string
           id: string
           project_item_id: string
+          store_id: string | null
         }
         Insert: {
           check_key: string
@@ -1051,6 +2301,7 @@ export type Database = {
           created_at?: string
           id?: string
           project_item_id: string
+          store_id?: string | null
         }
         Update: {
           check_key?: string
@@ -1058,6 +2309,7 @@ export type Database = {
           created_at?: string
           id?: string
           project_item_id?: string
+          store_id?: string | null
         }
         Relationships: [
           {
@@ -1067,53 +2319,75 @@ export type Database = {
             referencedRelation: "project_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_item_checklist_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       project_items: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
+          created_by: string | null
           discount_price: number | null
           environment_label: string | null
           id: string
           notes: string | null
-          presentation_image_2_index: number | null
           presentation_dimensions: string | null
+          presentation_image_2_index: number | null
           price: number | null
           product_id: string
           project_id: string
           quantity: number
           selected_finish_id: string | null
           selected_finish_id_2: string | null
+          store_id: string | null
+          updated_by: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
+          created_by?: string | null
           discount_price?: number | null
           environment_label?: string | null
           id?: string
           notes?: string | null
-          presentation_image_2_index?: number | null
           presentation_dimensions?: string | null
+          presentation_image_2_index?: number | null
           price?: number | null
           product_id: string
           project_id: string
           quantity?: number
           selected_finish_id?: string | null
           selected_finish_id_2?: string | null
+          store_id?: string | null
+          updated_by?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
+          created_by?: string | null
           discount_price?: number | null
           environment_label?: string | null
           id?: string
           notes?: string | null
-          presentation_image_2_index?: number | null
           presentation_dimensions?: string | null
+          presentation_image_2_index?: number | null
           price?: number | null
           product_id?: string
           project_id?: string
           quantity?: number
           selected_finish_id?: string | null
           selected_finish_id_2?: string | null
+          store_id?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -1144,40 +2418,556 @@ export type Database = {
             referencedRelation: "finishes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
         ]
       }
       projects: {
         Row: {
           architect_name: string | null
+          archived_at: string | null
+          archived_by: string | null
           client_name: string | null
           consultant_name: string | null
           created_at: string
+          created_by: string | null
+          crm_approval_status: string
+          crm_architect_profile_id: string | null
+          crm_customer_id: string | null
+          crm_delivery_status: string
+          crm_expected_close_date: string | null
+          crm_expected_value: number | null
+          crm_last_contact_at: string | null
+          crm_margin_percent: number | null
+          crm_next_followup_at: string | null
+          crm_notes: string | null
+          crm_order_status: string
+          crm_quote_status: string
+          crm_risk_level: string
+          crm_sold_value: number | null
+          crm_status: string
+          crm_tags: string[]
           id: string
+          initial_notes: string | null
           name: string
+          sale_completed_at: string | null
+          seller_user_id: string | null
           share_token: string | null
+          store_id: string | null
+          technical_notebook_signed_at: string | null
+          updated_by: string | null
           user_id: string
         }
         Insert: {
           architect_name?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           client_name?: string | null
           consultant_name?: string | null
           created_at?: string
+          created_by?: string | null
+          crm_approval_status?: string
+          crm_architect_profile_id?: string | null
+          crm_customer_id?: string | null
+          crm_delivery_status?: string
+          crm_expected_close_date?: string | null
+          crm_expected_value?: number | null
+          crm_last_contact_at?: string | null
+          crm_margin_percent?: number | null
+          crm_next_followup_at?: string | null
+          crm_notes?: string | null
+          crm_order_status?: string
+          crm_quote_status?: string
+          crm_risk_level?: string
+          crm_sold_value?: number | null
+          crm_status?: string
+          crm_tags?: string[]
           id?: string
+          initial_notes?: string | null
           name: string
+          sale_completed_at?: string | null
+          seller_user_id?: string | null
           share_token?: string | null
+          store_id?: string | null
+          technical_notebook_signed_at?: string | null
+          updated_by?: string | null
           user_id: string
         }
         Update: {
           architect_name?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           client_name?: string | null
           consultant_name?: string | null
           created_at?: string
+          created_by?: string | null
+          crm_approval_status?: string
+          crm_architect_profile_id?: string | null
+          crm_customer_id?: string | null
+          crm_delivery_status?: string
+          crm_expected_close_date?: string | null
+          crm_expected_value?: number | null
+          crm_last_contact_at?: string | null
+          crm_margin_percent?: number | null
+          crm_next_followup_at?: string | null
+          crm_notes?: string | null
+          crm_order_status?: string
+          crm_quote_status?: string
+          crm_risk_level?: string
+          crm_sold_value?: number | null
+          crm_status?: string
+          crm_tags?: string[]
           id?: string
+          initial_notes?: string | null
           name?: string
+          sale_completed_at?: string | null
+          seller_user_id?: string | null
           share_token?: string | null
+          store_id?: string | null
+          technical_notebook_signed_at?: string | null
+          updated_by?: string | null
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "projects_crm_architect_profile_id_fkey"
+            columns: ["crm_architect_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "projects_crm_customer_id_fkey"
+            columns: ["crm_customer_id"]
+            isOneToOne: false
+            referencedRelation: "crm_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_seller_user_id_fkey"
+            columns: ["seller_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "projects_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      relationship_posts: {
+        Row: {
+          body: string | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          cta_url: string | null
+          event_date: string | null
+          id: string
+          is_published: boolean
+          post_type: string
+          store_id: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          event_date?: string | null
+          id?: string
+          is_published?: boolean
+          post_type: string
+          store_id?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          event_date?: string | null
+          id?: string
+          is_published?: boolean
+          post_type?: string
+          store_id?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_posts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_audit_events: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          ip_address: unknown
+          metadata: Json
+          scope: string | null
+          success: boolean
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          scope?: string | null
+          success?: boolean
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          scope?: string | null
+          success?: boolean
+        }
         Relationships: []
+      }
+      security_rate_limits: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          blocked_until: string | null
+          hit_count: number
+          id: string
+          ip_address: unknown
+          scope_hash: string
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          blocked_until?: string | null
+          hit_count?: number
+          id?: string
+          ip_address?: unknown
+          scope_hash: string
+          updated_at?: string
+          window_start: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          blocked_until?: string | null
+          hit_count?: number
+          id?: string
+          ip_address?: unknown
+          scope_hash?: string
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      store_brands: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          status: string
+          store_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          store_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_brands_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          status: string
+          store_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          store_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_categories_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_members: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          role: string
+          status: string
+          store_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          role: string
+          status?: string
+          store_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          role?: string
+          status?: string
+          store_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_members_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_products: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          product_id: string
+          status: string
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id: string
+          status?: string
+          store_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          product_id?: string
+          status?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stores: {
+        Row: {
+          accent_color: string
+          background_color: string
+          city: string | null
+          cnpj: string | null
+          country: string
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          custom_welcome_text: string | null
+          email: string | null
+          id: string
+          legal_name: string | null
+          logo_url: string | null
+          max_architects: number | null
+          max_products: number | null
+          max_users: number | null
+          name: string
+          owner_user_id: string | null
+          phone: string | null
+          plan_id: string | null
+          primary_color: string
+          secondary_color: string
+          slug: string
+          state: string | null
+          status: string
+          storage_limit_mb: number | null
+          text_color: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accent_color?: string
+          background_color?: string
+          city?: string | null
+          cnpj?: string | null
+          country?: string
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_welcome_text?: string | null
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_url?: string | null
+          max_architects?: number | null
+          max_products?: number | null
+          max_users?: number | null
+          name: string
+          owner_user_id?: string | null
+          phone?: string | null
+          plan_id?: string | null
+          primary_color?: string
+          secondary_color?: string
+          slug: string
+          state?: string | null
+          status?: string
+          storage_limit_mb?: number | null
+          text_color?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accent_color?: string
+          background_color?: string
+          city?: string | null
+          cnpj?: string | null
+          country?: string
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_welcome_text?: string | null
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_url?: string | null
+          max_architects?: number | null
+          max_products?: number | null
+          max_users?: number | null
+          name?: string
+          owner_user_id?: string | null
+          phone?: string | null
+          plan_id?: string | null
+          primary_color?: string
+          secondary_color?: string
+          slug?: string
+          state?: string | null
+          status?: string
+          storage_limit_mb?: number | null
+          text_color?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stores_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
@@ -1306,7 +3096,23 @@ export type Database = {
         Args: { _profile_user_id: string; _viewer_id: string }
         Returns: boolean
       }
+      can_access_project: { Args: { _project_id: string }; Returns: boolean }
+      can_manage_operations: { Args: { _user_id: string }; Returns: boolean }
+      check_rate_limit: {
+        Args: {
+          _action: string
+          _actor_user_id?: string
+          _block_seconds: number
+          _ip_address?: unknown
+          _max_hits: number
+          _scope: string
+          _window_seconds: number
+        }
+        Returns: Json
+      }
       current_tenant_id: { Args: never; Returns: string }
+      current_user_id: { Args: never; Returns: string }
+      current_user_store_ids: { Args: never; Returns: string[] }
       get_shared_project_by_token: { Args: { _token: string }; Returns: string }
       has_role: {
         Args: {
@@ -1315,9 +3121,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
+      is_architect: { Args: { _user_id: string }; Returns: boolean }
+      is_manager: { Args: { _user_id: string }; Returns: boolean }
       is_seller: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       list_sellers: {
         Args: never
         Returns: {
@@ -1325,9 +3135,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      user_has_store_access: {
+        Args: { target_store_id: string }
+        Returns: boolean
+      }
+      user_has_store_role: {
+        Args: { allowed_roles: string[]; target_store_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "admin" | "user" | "vendedor"
+      app_role: "admin" | "user" | "vendedor" | "gestor" | "arquiteto"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1455,7 +3273,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "vendedor"],
+      app_role: ["admin", "user", "vendedor", "gestor", "arquiteto"],
     },
   },
 } as const
