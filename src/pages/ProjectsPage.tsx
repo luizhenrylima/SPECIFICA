@@ -203,7 +203,7 @@ export default function ProjectsPage() {
       const [{ data: profile }, { data: profiles }, { data: customers }] = await Promise.all([
         supabase.from('profiles').select('user_id, full_name, seller_id, phone, email').eq('user_id', user.id).maybeSingle(),
         supabase.from('profiles').select('user_id, full_name, seller_id, phone, email').order('full_name'),
-        (supabase as any).from('crm_customers').select('id, name, seller_user_id, architect_profile_id, architect_name').order('created_at', { ascending: false }),
+        (supabase as any).from('crm_customers').select('id, name, seller_user_id, architect_profile_id, architect_name').eq('store_id', currentStoreId).order('created_at', { ascending: false }),
       ]);
       setCurrentProfile((profile as ProfileOption | null) || null);
       const allProfiles = ((profiles || []) as ProfileOption[]).filter(profile => Boolean(profile.full_name));
@@ -415,6 +415,10 @@ export default function ProjectsPage() {
 
   const openProjectEdit = async () => {
     if (!selectedProject) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: 'Selecione uma loja para continuar.', variant: 'destructive' });
+      return;
+    }
     const nextForm = {
       client_name: selectedProject.client_name || '',
       client_phone: '',
@@ -429,9 +433,9 @@ export default function ProjectsPage() {
     };
 
     const customerQuery = selectedProject.crm_customer_id
-      ? (supabase as any).from('crm_customers').select(CUSTOMER_SELECT_FIELDS).eq('id', selectedProject.crm_customer_id).maybeSingle()
+      ? (supabase as any).from('crm_customers').select(CUSTOMER_SELECT_FIELDS).eq('id', selectedProject.crm_customer_id).eq('store_id', currentStoreId).maybeSingle()
       : selectedProject.client_name
-        ? (supabase as any).from('crm_customers').select(CUSTOMER_SELECT_FIELDS).eq('seller_user_id', selectedProject.seller_user_id || selectedProject.user_id).ilike('name', selectedProject.client_name).maybeSingle()
+        ? (supabase as any).from('crm_customers').select(CUSTOMER_SELECT_FIELDS).eq('seller_user_id', selectedProject.seller_user_id || selectedProject.user_id).eq('store_id', currentStoreId).ilike('name', selectedProject.client_name).maybeSingle()
         : Promise.resolve({ data: null });
 
     const { data: customer } = await customerQuery;
@@ -499,8 +503,8 @@ export default function ProjectsPage() {
       };
 
       const customerRequest = crmCustomerId
-        ? (supabase as any).from('crm_customers').update(customerPayload).eq('id', crmCustomerId).select('id').single()
-        : (supabase as any).from('crm_customers').insert(customerPayload).select('id').single();
+        ? (supabase as any).from('crm_customers').update(customerPayload).eq('id', crmCustomerId).eq('store_id', currentStoreId).select('id').single()
+        : (supabase as any).from('crm_customers').insert({ ...customerPayload, store_id: currentStoreId }).select('id').single();
       const { data: savedCustomer, error: customerError } = await customerRequest;
       if (!customerError && savedCustomer?.id) crmCustomerId = savedCustomer.id;
     }

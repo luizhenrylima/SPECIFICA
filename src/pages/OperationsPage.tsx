@@ -42,6 +42,7 @@ import {
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStore } from "@/contexts/StoreContext";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,6 +123,7 @@ interface CrmProject {
 
 interface CrmLead {
   id: string;
+  store_id?: string | null;
   seller_user_id: string;
   customer_id: string | null;
   architect_profile_id: string | null;
@@ -167,6 +169,7 @@ interface ProjectItem {
 
 interface CrmCustomer {
   id: string;
+  store_id?: string | null;
   seller_user_id: string;
   name: string;
   phone: string | null;
@@ -201,6 +204,7 @@ interface CrmCustomer {
 
 interface CrmInteraction {
   id: string;
+  store_id?: string | null;
   customer_id: string | null;
   project_id: string | null;
   user_id: string;
@@ -213,6 +217,7 @@ interface CrmInteraction {
 
 interface CrmQuote {
   id: string;
+  store_id?: string | null;
   project_id: string;
   customer_id: string | null;
   seller_user_id: string;
@@ -223,6 +228,7 @@ interface CrmQuote {
 
 interface CrmOrder {
   id: string;
+  store_id?: string | null;
   project_id: string;
   customer_id: string | null;
   seller_user_id: string;
@@ -235,6 +241,7 @@ interface CrmOrder {
 
 interface CrmTicket {
   id: string;
+  store_id?: string | null;
   customer_id: string | null;
   project_id: string | null;
   order_id: string | null;
@@ -246,6 +253,7 @@ interface CrmTicket {
 
 interface CrmAgendaEvent {
   id: string;
+  store_id?: string | null;
   project_id: string | null;
   customer_id: string | null;
   seller_user_id: string;
@@ -284,6 +292,7 @@ interface ArchitectProfile {
 
 interface CrmSalesTarget {
   id: string;
+  store_id?: string | null;
   seller_user_id: string | null;
   period_month: string;
   target_value: number;
@@ -405,6 +414,8 @@ function isStatusConstraintError(error: unknown) {
   const text = JSON.stringify(error || {}).toLowerCase();
   return text.includes("check constraint") || text.includes("23514") || text.includes("crm_status") || text.includes("crm_order_status") || text.includes("crm_orders_status");
 }
+
+const NO_ACTIVE_STORE_MESSAGE = "Nenhuma loja ativa selecionada. Selecione uma loja para continuar.";
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const sections: Array<{ key: SectionKey; label: string }> = [
@@ -567,7 +578,7 @@ const CRM_PROJECT_SELECT = [
   "sale_completed_at", "technical_notebook_signed_at",
 ].join(", ");
 const CRM_CUSTOMER_SELECT = [
-  "id", "seller_user_id", "name", "phone", "whatsapp", "email", "city", "address",
+  "id", "store_id", "seller_user_id", "name", "phone", "whatsapp", "email", "city", "address",
   "lead_source", "architect_name", "store_name", "architect_profile_id",
   "customer_type", "desired_style", "investment_range", "desired_rooms",
   "purchase_deadline", "construction_address", "construction_status",
@@ -575,20 +586,21 @@ const CRM_CUSTOMER_SELECT = [
   "purchase_reason", "status", "notes", "created_at",
 ].join(", ");
 const CRM_LEAD_SELECT = [
-  "id", "seller_user_id", "customer_id", "architect_profile_id", "project_id",
+  "id", "store_id", "seller_user_id", "customer_id", "architect_profile_id", "project_id",
   "lead_name", "phone", "lead_source", "notes", "crm_status", "status",
   "crm_tags", "next_action", "next_followup_at", "converted_project_id",
   "created_at", "updated_at",
 ].join(", ");
-const CRM_INTERACTION_SELECT = "id, customer_id, project_id, user_id, interaction_type, description, next_action, next_followup_at, created_at";
-const CRM_QUOTE_SELECT = "id, project_id, customer_id, seller_user_id, final_value, status, valid_until";
-const CRM_ORDER_SELECT = "id, project_id, customer_id, seller_user_id, brand_id, status, risk_level, expected_deadline, delivered_at";
-const CRM_TICKET_SELECT = "id, customer_id, project_id, order_id, issue_type, description, status, due_date";
-const CRM_AGENDA_SELECT = "id, project_id, customer_id, seller_user_id, architect_profile_id, title, event_type, scheduled_at, notify_at, completed_at, status, location, notes";
-const CRM_TARGET_SELECT = "id, seller_user_id, period_month, target_value, notes";
+const CRM_INTERACTION_SELECT = "id, store_id, customer_id, project_id, user_id, interaction_type, description, next_action, next_followup_at, created_at";
+const CRM_QUOTE_SELECT = "id, store_id, project_id, customer_id, seller_user_id, final_value, status, valid_until";
+const CRM_ORDER_SELECT = "id, store_id, project_id, customer_id, seller_user_id, brand_id, status, risk_level, expected_deadline, delivered_at";
+const CRM_TICKET_SELECT = "id, store_id, customer_id, project_id, order_id, issue_type, description, status, due_date";
+const CRM_AGENDA_SELECT = "id, store_id, project_id, customer_id, seller_user_id, architect_profile_id, title, event_type, scheduled_at, notify_at, completed_at, status, location, notes";
+const CRM_TARGET_SELECT = "id, store_id, seller_user_id, period_month, target_value, notes";
 
 export default function OperationsPage() {
   const { user, isAdmin, isManager, isSeller } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState<SectionKey>("visao");
   const [projects, setProjects] = useState<CrmProject[]>([]);
@@ -632,6 +644,28 @@ export default function OperationsPage() {
     return sections.filter(section => sellerKeys.includes(section.key));
   }, [canManageOrders]);
 
+  const clearOperationalState = () => {
+    setProjects([]);
+    setLeads([]);
+    setCustomers([]);
+    setInteractions([]);
+    setQuotes([]);
+    setOrders([]);
+    setTickets([]);
+    setAgendaEvents([]);
+    setBrandTerms([]);
+    setBrands([]);
+    setTechnicalItems([]);
+    setArchitects([]);
+    setSalesTargets([]);
+  };
+
+  const ensureCurrentStore = () => {
+    if (currentStoreId) return true;
+    toast({ title: "Nenhuma loja ativa selecionada", description: NO_ACTIVE_STORE_MESSAGE, variant: "destructive" });
+    return false;
+  };
+
   useEffect(() => {
     if (!visibleSections.some(section => section.key === activeSection)) {
       setActiveSection("visao");
@@ -639,12 +673,18 @@ export default function OperationsPage() {
   }, [activeSection, visibleSections]);
 
   const loadCrm = async () => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      clearOperationalState();
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     let projectQuery = supabase
       .from("projects")
       .select(CRM_PROJECT_SELECT)
+      .eq("store_id", currentStoreId)
       .order("created_at", { ascending: false });
 
     if (!canManageOrders && isSeller) projectQuery = projectQuery.or(`seller_user_id.eq.${user.id},user_id.eq.${user.id}`);
@@ -662,10 +702,10 @@ export default function OperationsPage() {
     const projectIds = rawProjects.map(project => project.id);
     const ownerIds = [...new Set(rawProjects.flatMap(project => [project.user_id, project.seller_user_id]).filter((id): id is string => Boolean(id)))];
 
-    let customersQuery = (supabase as any).from("crm_customers").select(CRM_CUSTOMER_SELECT).order("created_at", { ascending: false });
+    let customersQuery = (supabase as any).from("crm_customers").select(CRM_CUSTOMER_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false });
     if (!canManageOrders) customersQuery = customersQuery.eq("seller_user_id", user.id);
 
-    let leadsQuery = (supabase as any).from("crm_leads").select(CRM_LEAD_SELECT).order("created_at", { ascending: false });
+    let leadsQuery = (supabase as any).from("crm_leads").select(CRM_LEAD_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false });
     if (!canManageOrders) leadsQuery = leadsQuery.eq("seller_user_id", user.id);
 
     const [
@@ -688,6 +728,7 @@ export default function OperationsPage() {
         ? supabase
           .from("project_items")
           .select("id, project_id, product_id, quantity, price, discount_price, selected_finish_id, selected_finish_id_2, environment_label, presentation_dimensions, notes")
+          .eq("store_id", currentStoreId)
           .in("project_id", projectIds)
         : Promise.resolve({ data: [] as ProjectItem[] }),
       ownerIds.length
@@ -700,14 +741,14 @@ export default function OperationsPage() {
       supabase.rpc("list_sellers"),
       customersQuery,
       leadsQuery,
-      (supabase as any).from("crm_interactions").select(CRM_INTERACTION_SELECT).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("crm_quotes").select(CRM_QUOTE_SELECT).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("crm_orders").select(CRM_ORDER_SELECT).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("crm_support_tickets").select(CRM_TICKET_SELECT).order("created_at", { ascending: false }).limit(200),
-      (supabase as any).from("crm_agenda_events").select(CRM_AGENDA_SELECT).order("scheduled_at", { ascending: true }).limit(300),
+      (supabase as any).from("crm_interactions").select(CRM_INTERACTION_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false }).limit(200),
+      (supabase as any).from("crm_quotes").select(CRM_QUOTE_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false }).limit(200),
+      (supabase as any).from("crm_orders").select(CRM_ORDER_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false }).limit(200),
+      (supabase as any).from("crm_support_tickets").select(CRM_TICKET_SELECT).eq("store_id", currentStoreId).order("created_at", { ascending: false }).limit(200),
+      (supabase as any).from("crm_agenda_events").select(CRM_AGENDA_SELECT).eq("store_id", currentStoreId).order("scheduled_at", { ascending: true }).limit(300),
       (supabase as any).from("crm_brand_delivery_terms").select("id, brand_id, delivery_days, followup_days_before, notes"),
       supabase.from("brands").select("id, name").order("name"),
-      (supabase as any).from("crm_sales_targets").select(CRM_TARGET_SELECT).gte("period_month", monthKey(monthStart(new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)))),
+      (supabase as any).from("crm_sales_targets").select(CRM_TARGET_SELECT).eq("store_id", currentStoreId).gte("period_month", monthKey(monthStart(new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)))),
     ]);
 
     const totals = new Map<string, { count: number; value: number; brands: Set<string>; categories: Set<string> }>();
@@ -867,7 +908,7 @@ export default function OperationsPage() {
 
   useEffect(() => {
     void loadCrm();
-  }, [user, canManageOrders, isSeller]);
+  }, [user, canManageOrders, isSeller, currentStoreId, storeLoading]);
 
   const sellerFilterOptions = useMemo(() => {
     const grouped = new Map<string, { id: string; name: string; projects: number; value: number }>();
@@ -1246,6 +1287,10 @@ export default function OperationsPage() {
   }, [architects, scopedProjects, selectedSellerId]);
 
   const createOperationalOrders = async (project: CrmProject) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const existingOrders = orders.filter(order => order.project_id === project.id);
     if (existingOrders.length) {
       const updatePayload = { status: "revisao_tecnica", updated_at: new Date().toISOString() };
@@ -1253,12 +1298,14 @@ export default function OperationsPage() {
         .from("crm_orders")
         .update(updatePayload)
         .eq("project_id", project.id)
+        .eq("store_id", currentStoreId)
         .eq("status", "montagem");
       if (error && isStatusConstraintError(error)) {
         const retry = await (supabase as any)
           .from("crm_orders")
           .update({ ...updatePayload, status: legacyOrderStatus("revisao_tecnica") })
           .eq("project_id", project.id)
+          .eq("store_id", currentStoreId)
           .eq("status", "montagem");
         error = retry.error;
       }
@@ -1274,6 +1321,7 @@ export default function OperationsPage() {
     const projectItems = technicalItems.filter(item => item.project_id === project.id);
     const brandIds = [...new Set(projectItems.map(item => item.brandId).filter(Boolean))] as string[];
     const rows = (brandIds.length ? brandIds : [null]).map(brandId => ({
+      store_id: currentStoreId,
       project_id: project.id,
       customer_id: project.crm_customer_id || null,
       seller_user_id: project.sellerUserId || project.user_id || user?.id,
@@ -1298,6 +1346,10 @@ export default function OperationsPage() {
   };
 
   const moveProject = async (projectId: string, nextStatus: CrmStatus) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const rate = checkClientRateLimit('crm:update-status', projectId);
     if (!rate.allowed) {
       toast({ title: "Muitas alteracoes", description: rateLimitMessage(rate), variant: "destructive" });
@@ -1315,7 +1367,8 @@ export default function OperationsPage() {
       const { error } = await (supabase as any)
         .from("crm_leads")
         .update({ crm_status: nextStatus, updated_at: new Date().toISOString() })
-        .eq("id", leadId);
+        .eq("id", leadId)
+        .eq("store_id", currentStoreId);
       if (error) {
         setLeads(previousLeads);
         toast({ title: "Erro ao mover atendimento", description: "Nao foi possivel salvar a etapa.", variant: "destructive" });
@@ -1344,13 +1397,15 @@ export default function OperationsPage() {
     let { error } = await (supabase as any)
       .from("projects")
       .update(updatePayload)
-      .eq("id", projectId);
+      .eq("id", projectId)
+      .eq("store_id", currentStoreId);
 
     if (error && isStatusConstraintError(error)) {
       const retry = await (supabase as any)
         .from("projects")
         .update(legacyProjectUpdates(updatePayload))
-        .eq("id", projectId);
+        .eq("id", projectId)
+        .eq("store_id", currentStoreId);
       error = retry.error;
     }
 
@@ -1363,6 +1418,10 @@ export default function OperationsPage() {
   };
 
   const updateProjectCrm = async (projectId: string, updates: Partial<CrmProject>, successTitle: string) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const rate = checkClientRateLimit('crm:update-status', projectId);
     if (!rate.allowed) {
       toast({ title: "Muitas alteracoes", description: rateLimitMessage(rate), variant: "destructive" });
@@ -1370,9 +1429,9 @@ export default function OperationsPage() {
     }
     const previous = projects;
     setProjects(current => current.map(project => project.id === projectId ? { ...project, ...updates } : project));
-    let { error } = await (supabase as any).from("projects").update(updates).eq("id", projectId);
+    let { error } = await (supabase as any).from("projects").update(updates).eq("id", projectId).eq("store_id", currentStoreId);
     if (error && isStatusConstraintError(error)) {
-      const retry = await (supabase as any).from("projects").update(legacyProjectUpdates(updates)).eq("id", projectId);
+      const retry = await (supabase as any).from("projects").update(legacyProjectUpdates(updates)).eq("id", projectId).eq("store_id", currentStoreId);
       error = retry.error;
     }
     if (error) {
@@ -1384,12 +1443,14 @@ export default function OperationsPage() {
       let orderUpdate = await (supabase as any)
         .from("crm_orders")
         .update({ status: normalizeOrderStatus(updates.crm_order_status), updated_at: new Date().toISOString() })
-        .eq("project_id", projectId);
+        .eq("project_id", projectId)
+        .eq("store_id", currentStoreId);
       if (orderUpdate.error && isStatusConstraintError(orderUpdate.error)) {
         orderUpdate = await (supabase as any)
           .from("crm_orders")
           .update({ status: legacyOrderStatus(updates.crm_order_status), updated_at: new Date().toISOString() })
-          .eq("project_id", projectId);
+          .eq("project_id", projectId)
+          .eq("store_id", currentStoreId);
       }
       setOrders(current => current.map(order => order.project_id === projectId
         ? { ...order, status: normalizeOrderStatus(updates.crm_order_status) }
@@ -1406,6 +1467,10 @@ export default function OperationsPage() {
     nextAction: string,
     nextFollowupAt: string
   ) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return false;
+    }
     const cleanDescription = description.trim();
     if (!cleanDescription || !user?.id) return false;
 
@@ -1413,6 +1478,7 @@ export default function OperationsPage() {
       || projects.find(project => project.crm_customer_id === customer.id || customerKey(project.client_name || project.name) === customerKey(customer.name));
 
     const payload = {
+      store_id: currentStoreId,
       customer_id: customer.source === "crm" ? customer.id : null,
       project_id: relatedProject?.id || null,
       user_id: user.id,
@@ -1443,7 +1509,7 @@ export default function OperationsPage() {
       if (nextFollowupAt) projectUpdates.crm_status = "followup_negociacao";
 
       setProjects(current => current.map(project => project.id === relatedProject.id ? { ...project, ...projectUpdates } : project));
-      await (supabase as any).from("projects").update(projectUpdates).eq("id", relatedProject.id);
+      await (supabase as any).from("projects").update(projectUpdates).eq("id", relatedProject.id).eq("store_id", currentStoreId);
     }
 
     toast({ title: "Atendimento registrado" });
@@ -1471,6 +1537,10 @@ export default function OperationsPage() {
 
   const createLead = async () => {
     if (!user?.id) return;
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const sellerUserId = leadDraft.sellerUserId || user.id;
     const leadName = sanitizePlainText(leadDraft.leadName, 160);
     if (!leadName) {
@@ -1484,6 +1554,7 @@ export default function OperationsPage() {
     }
 
     const payload = {
+      store_id: currentStoreId,
       seller_user_id: sellerUserId,
       lead_name: leadName,
       phone: sanitizePlainText(leadDraft.phone, 40) || null,
@@ -1518,6 +1589,10 @@ export default function OperationsPage() {
 
   const saveKanbanDetails = async () => {
     if (!selectedKanbanItem) return;
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const updates = {
       crm_status: kanbanDraft.crmStatus,
       crm_tags: parseTags(kanbanDraft.tags),
@@ -1537,7 +1612,8 @@ export default function OperationsPage() {
           next_followup_at: updates.crm_next_followup_at,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", selectedKanbanItem.leadId);
+        .eq("id", selectedKanbanItem.leadId)
+        .eq("store_id", currentStoreId);
       if (error) {
         toast({ title: "Erro ao salvar atendimento", variant: "destructive" });
         return;
@@ -1568,6 +1644,10 @@ export default function OperationsPage() {
 
   const convertLeadToProject = async () => {
     if (!selectedKanbanItem?.isLead || !selectedKanbanItem.leadId || !user?.id) return;
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const lead = leads.find(item => item.id === selectedKanbanItem.leadId);
     if (!lead) return;
     const projectName = window.prompt("Nome do projeto", `Projeto ${lead.lead_name}`)?.trim();
@@ -1582,6 +1662,7 @@ export default function OperationsPage() {
       architectName: lead.architectName || null,
       initialNotes: lead.notes || null,
       tags: lead.crm_tags || [],
+      storeId: currentStoreId,
     });
 
     const { data, error } = await (supabase as any)
@@ -1597,7 +1678,8 @@ export default function OperationsPage() {
     await (supabase as any)
       .from("crm_leads")
       .update({ status: "convertido", converted_project_id: data.id, project_id: data.id, updated_at: new Date().toISOString() })
-      .eq("id", lead.id);
+      .eq("id", lead.id)
+      .eq("store_id", currentStoreId);
 
     setLeads(current => current.map(item => item.id === lead.id ? { ...item, status: "convertido", converted_project_id: data.id, project_id: data.id } : item));
     setProjects(current => [{
@@ -1614,6 +1696,10 @@ export default function OperationsPage() {
   };
 
   const archiveCustomer = async (customer: CrmCustomer) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     if (customer.source !== "crm") {
       toast({ title: "Cliente vindo de projeto", description: "Abra o projeto para ajustar este cliente.", variant: "destructive" });
       return;
@@ -1626,7 +1712,8 @@ export default function OperationsPage() {
         archived_by: user?.id || null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", customer.id);
+      .eq("id", customer.id)
+      .eq("store_id", currentStoreId);
     if (error) {
       toast({ title: "Erro ao arquivar cliente", variant: "destructive" });
       return;
@@ -1636,6 +1723,10 @@ export default function OperationsPage() {
   };
 
   const deleteCustomer = async (customer: CrmCustomer) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     if (customer.source !== "crm") {
       toast({ title: "Cliente gerado por projeto", description: "Use arquivar ou edite o projeto vinculado.", variant: "destructive" });
       return;
@@ -1653,7 +1744,7 @@ export default function OperationsPage() {
     }
 
     const { error } = canManageOrders
-      ? await (supabase as any).from("crm_customers").delete().eq("id", customer.id)
+      ? await (supabase as any).from("crm_customers").delete().eq("id", customer.id).eq("store_id", currentStoreId)
       : await (supabase as any)
         .from("crm_customers")
         .update({
@@ -1662,7 +1753,8 @@ export default function OperationsPage() {
           archived_by: user?.id || null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", customer.id);
+        .eq("id", customer.id)
+        .eq("store_id", currentStoreId);
     if (error) {
       toast({ title: "Erro ao remover cliente", description: "Se houver historico, arquive o cliente.", variant: "destructive" });
       return;
@@ -1673,6 +1765,10 @@ export default function OperationsPage() {
 
   const createProjectForArchitect = async (architect: { userId?: string | null; name: string }) => {
     if (!user?.id) return;
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const projectName = window.prompt("Nome do projeto")?.trim();
     if (!projectName) return;
     const clientName = window.prompt("Nome do cliente final")?.trim();
@@ -1685,6 +1781,7 @@ export default function OperationsPage() {
         sellerUserId,
         architectProfileId: architect.userId || null,
         architectName: architect.name,
+        storeId: currentStoreId,
       }))
       .select(CRM_PROJECT_SELECT)
       .single();
@@ -1732,6 +1829,10 @@ export default function OperationsPage() {
   };
 
   const saveSalesTarget = async (sellerUserId: string, targetValue: number) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const rate = checkClientRateLimit('crm:update-status', sellerUserId);
     if (!rate.allowed) {
       toast({ title: "Muitas alteracoes", description: rateLimitMessage(rate), variant: "destructive" });
@@ -1747,8 +1848,8 @@ export default function OperationsPage() {
     };
 
     const request = existing
-      ? (supabase as any).from("crm_sales_targets").update(payload).eq("id", existing.id).select(CRM_TARGET_SELECT).single()
-      : (supabase as any).from("crm_sales_targets").insert(payload).select(CRM_TARGET_SELECT).single();
+      ? (supabase as any).from("crm_sales_targets").update(payload).eq("id", existing.id).eq("store_id", currentStoreId).select(CRM_TARGET_SELECT).single()
+      : (supabase as any).from("crm_sales_targets").insert({ ...payload, store_id: currentStoreId }).select(CRM_TARGET_SELECT).single();
 
     const { data, error } = await request;
     if (error) {
@@ -1765,6 +1866,10 @@ export default function OperationsPage() {
 
   const addAgendaEvent = async (draft: { projectId: string; title: string; eventType: string; scheduledAt: string; location: string; notes: string }) => {
     if (!user?.id) return false;
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return false;
+    }
     const parsed = agendaEventSchema.safeParse(draft);
     if (!parsed.success) {
       toast({ title: "Confira a agenda", description: firstZodMessage(parsed.error), variant: "destructive" });
@@ -1782,6 +1887,7 @@ export default function OperationsPage() {
     ) : null;
 
     const payload = {
+      store_id: currentStoreId,
       project_id: project?.id || null,
       customer_id: customer?.source === "crm" ? customer.id : null,
       seller_user_id: project?.sellerUserId || user.id,
@@ -1806,8 +1912,12 @@ export default function OperationsPage() {
   };
 
   const completeAgendaEvent = async (eventId: string) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const updates = { status: "feito", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    const { error } = await (supabase as any).from("crm_agenda_events").update(updates).eq("id", eventId);
+    const { error } = await (supabase as any).from("crm_agenda_events").update(updates).eq("id", eventId).eq("store_id", currentStoreId);
     if (error) {
       toast({ title: "Erro ao concluir agenda", variant: "destructive" });
       return;
@@ -1828,6 +1938,10 @@ export default function OperationsPage() {
   };
 
   const generateTechnicalNotebook = async (project: CrmProject) => {
+    if (!currentStoreId) {
+      ensureCurrentStore();
+      return;
+    }
     const items = technicalItems.filter(item => item.project_id === project.id);
     if (!items.length) {
       toast({ title: "Caderno sem itens", description: "Adicione produtos ao projeto antes de gerar.", variant: "destructive" });
@@ -1835,6 +1949,7 @@ export default function OperationsPage() {
     }
 
     await (supabase as any).from("crm_technical_notebooks").insert({
+      store_id: currentStoreId,
       project_id: project.id,
       generated_by: user?.id,
       status: "enviado",
@@ -1909,6 +2024,26 @@ export default function OperationsPage() {
       win.document.close();
     }
   };
+
+  if (!storeLoading && !currentStoreId) {
+    return (
+      <main className="min-h-screen bg-[#F7F6F3] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-[60vh] max-w-3xl items-center justify-center">
+          <Card className="w-full border-[#E5E2DC] bg-white">
+            <CardContent className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h1 className="font-serif text-2xl text-[#1F1F1F]">Selecione uma loja</h1>
+                <p className="mt-2 text-sm text-[#77736B]">{NO_ACTIVE_STORE_MESSAGE}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
