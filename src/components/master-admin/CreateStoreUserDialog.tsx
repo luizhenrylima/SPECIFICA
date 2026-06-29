@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import {
   STORE_USER_ROLES,
   STORE_USER_STATUSES,
+  validateStoreUserForm,
   type StoreUserFormValues,
   type StoreUserRole,
   type StoreUserStatus,
@@ -12,11 +13,13 @@ const initialValues: StoreUserFormValues = {
   fullName: "",
   email: "",
   phone: "",
+  password: "",
+  confirmPassword: "",
   role: "store_admin",
   status: "active",
 };
 
-interface AddStoreUserDialogProps {
+interface CreateStoreUserDialogProps {
   open: boolean;
   loading: boolean;
   error?: string | null;
@@ -24,7 +27,7 @@ interface AddStoreUserDialogProps {
   onSubmit: (values: StoreUserFormValues) => Promise<void>;
 }
 
-export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: AddStoreUserDialogProps) {
+export function CreateStoreUserDialog({ open, loading, error, onClose, onSubmit }: CreateStoreUserDialogProps) {
   const [values, setValues] = useState<StoreUserFormValues>(initialValues);
   const [localError, setLocalError] = useState("");
 
@@ -43,12 +46,13 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!values.email.trim()) {
-      setLocalError("Informe o e-mail do usuario.");
-      return;
+    try {
+      validateStoreUserForm(values);
+      setLocalError("");
+      await onSubmit(values);
+    } catch (err: any) {
+      setLocalError(err?.message ?? "Confira os dados do usuario.");
     }
-    setLocalError("");
-    await onSubmit(values);
   };
 
   return (
@@ -56,8 +60,8 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
       <div className="w-full max-w-2xl rounded-lg border border-neutral-200 bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-neutral-200 p-5">
           <div>
-            <h3 className="text-lg font-semibold text-neutral-950">Adicionar usuario</h3>
-            <p className="mt-1 text-sm text-neutral-500">Vincule um usuario existente ou crie um novo acesso para esta loja.</p>
+            <h3 className="text-lg font-semibold text-neutral-950">Criar usuario</h3>
+            <p className="mt-1 text-sm text-neutral-500">Cadastre o acesso da loja com e-mail e senha definidos pelo Master Admin.</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100" aria-label="Fechar">
             <X size={16} />
@@ -68,11 +72,11 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
           {(localError || error) && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{localError || error}</p>}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Nome completo" value={values.fullName} onChange={(value) => setValue("fullName", value)} />
+            <Field label="Nome completo" required value={values.fullName} onChange={(value) => setValue("fullName", value)} />
             <Field label="E-mail" type="email" required value={values.email} onChange={(value) => setValue("email", value)} />
             <Field label="Telefone" value={values.phone} onChange={(value) => setValue("phone", value)} />
             <label className="block">
-              <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Role</span>
+              <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Funcao *</span>
               <select
                 value={values.role}
                 onChange={(event) => setValue("role", event.target.value as StoreUserRole)}
@@ -83,6 +87,8 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
                 ))}
               </select>
             </label>
+            <Field label="Senha" type="password" required value={values.password} onChange={(value) => setValue("password", value)} />
+            <Field label="Confirmar senha" type="password" required value={values.confirmPassword} onChange={(value) => setValue("confirmPassword", value)} />
             <label className="block">
               <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Status inicial</span>
               <select
@@ -99,7 +105,7 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
 
           <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4">
             <p className="text-sm text-neutral-600">
-              Se o e-mail ainda nao existir no Auth, a plataforma cria o usuario com vinculo na loja. O envio automatico de convite podera ser implementado depois.
+              O usuario sera criado no Supabase Auth com e-mail confirmado e podera entrar imediatamente com a senha cadastrada. Se o e-mail ja existir, use futuramente o fluxo de vincular usuario existente.
             </p>
           </div>
 
@@ -108,7 +114,7 @@ export function AddStoreUserDialog({ open, loading, error, onClose, onSubmit }: 
               Cancelar
             </button>
             <button type="submit" disabled={loading} className="rounded-md bg-neutral-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
-              {loading ? "Salvando..." : "Adicionar usuario"}
+              {loading ? "Criando..." : "Criar usuario"}
             </button>
           </div>
         </form>
@@ -125,6 +131,7 @@ function Field({ label, value, onChange, required, type = "text" }: { label: str
         type={type}
         value={value}
         required={required}
+        minLength={type === "password" ? 8 : undefined}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm outline-none transition focus:border-neutral-950"
       />

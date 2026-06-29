@@ -8,6 +8,28 @@ import { authLoginSchema, emailSchema, firstZodMessage, passwordSchema } from '@
 
 type AuthMode = 'login' | 'forgot' | 'updatePassword';
 
+async function resolvePostLoginPath() {
+  const { data: isMasterAdmin } = await (supabase.rpc as any)('is_master_admin');
+  if (isMasterAdmin) return '/admin';
+
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData.user?.id;
+  if (!userId) return '/catalog';
+
+  const { data: memberships } = await (supabase as any)
+    .from('store_members')
+    .select('role, status, store_id, created_at')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true });
+
+  const role = memberships?.[0]?.role;
+  if (role === 'store_admin' || role === 'manager') return '/gestao';
+  if (role === 'seller') return '/rotina';
+  if (role === 'financial' || role === 'finance') return '/consultor-valores';
+  return '/catalog';
+}
+
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
@@ -124,7 +146,7 @@ export default function AuthPage() {
       if (error) {
         setError(error.message);
       } else {
-        navigate('/catalog');
+        navigate(await resolvePostLoginPath());
       }
     }
 

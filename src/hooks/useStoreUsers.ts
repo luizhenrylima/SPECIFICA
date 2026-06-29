@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  addStoreUser,
+  createStoreUser,
   listStoreUsers,
   removeStoreUser,
   resendStoreUserInvite,
@@ -78,10 +78,10 @@ function useStoreUserMutation(defaultError: string) {
   return { loading, error, run };
 }
 
-export function useAddStoreUser() {
-  const mutation = useStoreUserMutation("Nao foi possivel adicionar o usuario.");
+export function useCreateStoreUser() {
+  const mutation = useStoreUserMutation("Nao foi possivel criar o usuario.");
   return {
-    addUser: (storeId: string, values: StoreUserFormValues, actorUserId: string) => mutation.run(() => addStoreUser(storeId, values, actorUserId)),
+    createUser: (storeId: string, values: StoreUserFormValues) => mutation.run(() => createStoreUser(storeId, values)),
     loading: mutation.loading,
     error: mutation.error,
   };

@@ -116,6 +116,7 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   const { user, loading, isAdmin, isMasterAdmin, isManager, isSeller, isStaff } = useAuth();
   const {
     currentRole,
+    loading: storeLoading,
     isSuperAdmin,
     isStoreAdmin,
     isManager: isStoreManager,
@@ -125,9 +126,9 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   const canManageLegacyAdminAreas = isAdmin || isSuperAdmin;
   const canManageStore = canAdminPlatform || canManageLegacyAdminAreas || isStoreAdmin || isManager || isStoreManager;
   const canUseSellerArea = canManageStore || isSeller || isStoreSeller;
-  const canUseStaffArea = isStaff || canManageStore || currentRole === "finance";
+  const canUseStaffArea = isStaff || canManageStore || currentRole === "finance" || currentRole === "financial";
 
-  if (loading) {
+  if (loading || storeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-6 h-6 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />

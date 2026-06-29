@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { Eye, MailPlus, Plus, RotateCcw, Search, ShieldOff, Trash2, UserRound, UsersRound } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { AdminMetricCard } from "@/components/master-admin/AdminMetricCard";
-import { AddStoreUserDialog } from "@/components/master-admin/AddStoreUserDialog";
+import { CreateStoreUserDialog } from "@/components/master-admin/CreateStoreUserDialog";
 import { StoreUserRoleBadge } from "@/components/master-admin/StoreUserRoleBadge";
 import { StoreUserStatusBadge } from "@/components/master-admin/StoreUserStatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useAddStoreUser,
+  useCreateStoreUser,
   useRemoveStoreUser,
   useResendStoreUserInvite,
   useStoreUsers,
@@ -27,12 +27,12 @@ import {
 export function StoreUsersManager({ storeId }: { storeId: string }) {
   const { user } = useAuth();
   const { users, filteredUsers, loading, error, search, setSearch, role, setRole, status, setStatus, reload } = useStoreUsers(storeId);
-  const addMutation = useAddStoreUser();
+  const createMutation = useCreateStoreUser();
   const roleMutation = useUpdateStoreUserRole();
   const statusMutation = useUpdateStoreUserStatus();
   const removeMutation = useRemoveStoreUser();
   const inviteMutation = useResendStoreUserInvite();
-  const [addOpen, setAddOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<StoreUserMember | null>(null);
 
   const summary = useMemo(() => ({
@@ -45,15 +45,15 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
     inactive: users.filter((item) => item.status !== "active").length,
   }), [users]);
 
-  const handleAdd = async (values: StoreUserFormValues) => {
+  const handleCreate = async (values: StoreUserFormValues) => {
     if (!user) return;
     try {
-      await addMutation.addUser(storeId, values, user.id);
+      await createMutation.createUser(storeId, values);
       await reload();
-      setAddOpen(false);
-      toast({ title: "Usuario vinculado a loja", description: "O acesso foi registrado para esta loja." });
+      setCreateOpen(false);
+      toast({ title: "Usuario criado com sucesso", description: "Ele ja pode acessar a loja com o e-mail e senha cadastrados." });
     } catch (err: any) {
-      toast({ title: "Erro ao adicionar usuario", description: err?.message ?? "Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro ao criar usuario", description: err?.message ?? "Tente novamente.", variant: "destructive" });
     }
   };
 
@@ -103,7 +103,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
     }
   };
 
-  const busy = addMutation.loading || roleMutation.loading || statusMutation.loading || removeMutation.loading || inviteMutation.loading;
+  const busy = createMutation.loading || roleMutation.loading || statusMutation.loading || removeMutation.loading || inviteMutation.loading;
 
   return (
     <div className="space-y-6">
@@ -114,11 +114,11 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
         </div>
         <button
           type="button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => setCreateOpen(true)}
           className="inline-flex items-center gap-2 rounded-md bg-neutral-950 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
         >
           <Plus size={16} />
-          Adicionar usuario
+          Criar usuario
         </button>
       </div>
 
@@ -232,7 +232,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
         )}
       </section>
 
-      <AddStoreUserDialog open={addOpen} loading={addMutation.loading} error={addMutation.error} onClose={() => setAddOpen(false)} onSubmit={handleAdd} />
+      <CreateStoreUserDialog open={createOpen} loading={createMutation.loading} error={createMutation.error} onClose={() => setCreateOpen(false)} onSubmit={handleCreate} />
       {selectedUser && <UserDetailsDialog member={selectedUser} onClose={() => setSelectedUser(null)} />}
     </div>
   );

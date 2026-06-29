@@ -50,6 +50,8 @@ export interface StoreUserFormValues {
   fullName: string;
   email: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
   role: StoreUserRole;
   status: StoreUserStatus;
 }
@@ -88,7 +90,12 @@ function validateStatus(status: string): asserts status is StoreUserStatus {
 
 export function validateStoreUserForm(values: StoreUserFormValues) {
   const email = normalizeEmail(values.email);
+  if (!values.fullName.trim()) throw new Error("Informe o nome completo do usuario.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Informe um e-mail valido.");
+  if (!values.password) throw new Error("Informe a senha do usuario.");
+  if (!values.confirmPassword) throw new Error("Confirme a senha do usuario.");
+  if (values.password.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+  if (values.password !== values.confirmPassword) throw new Error("Senha e confirmacao precisam ser iguais.");
   validateRole(values.role);
   validateStatus(values.status);
 }
@@ -141,30 +148,6 @@ export async function listStoreUsers(storeId: string): Promise<StoreUserMember[]
   return mergeMembersWithProfiles(members ?? [], profiles ?? []);
 }
 
-export async function findProfileByEmail(email: string): Promise<StoreUserProfile | null> {
-  const normalized = normalizeEmail(email);
-  const { data, error } = await supabaseAny
-    .from("profiles")
-    .select(PROFILE_SELECT)
-    .ilike("email", normalized)
-    .limit(1);
-
-  if (error) throw error;
-  return data?.[0] ?? null;
-}
-
-async function assertUserNotLinked(storeId: string, userId: string) {
-  const { data, error } = await supabaseAny
-    .from("store_members")
-    .select("id")
-    .eq("store_id", storeId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (data) throw new Error("Este usuario ja esta vinculado a esta loja.");
-}
-
 async function assertCanChangeLastStoreAdmin(member: StoreUserMember, nextRole?: StoreUserRole, nextStatus?: StoreUserStatus) {
   const isLosingActiveAdmin =
     member.role === "store_admin"
@@ -186,63 +169,28 @@ async function assertCanChangeLastStoreAdmin(member: StoreUserMember, nextRole?:
   }
 }
 
-export async function addStoreUser(storeId: string, values: StoreUserFormValues, actorUserId: string): Promise<StoreUserMember> {
+export async function createStoreUser(storeId: string, values: StoreUserFormValues): Promise<StoreUserMember> {
   validateStoreUserForm(values);
   const email = normalizeEmail(values.email);
-  const profile = await findProfileByEmail(email);
 
-  if (!profile) {
-    const { data, error } = await supabase.functions.invoke("admin-create-store-user", {
-      body: {
-        store_id: storeId,
-        email,
-        full_name: cleanText(values.fullName),
-        phone: cleanText(values.phone),
-        role: values.role,
-        status: values.status,
-      },
-    });
-
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    return {
-      ...data.member,
-      profile: data.profile,
-    } as StoreUserMember;
-  }
-
-  await assertUserNotLinked(storeId, profile.user_id);
-
-  if (values.fullName.trim() || values.phone.trim()) {
-    const { error: profileUpdateError } = await supabaseAny
-      .from("profiles")
-      .update({
-        full_name: cleanText(values.fullName) ?? profile.full_name,
-        phone: cleanText(values.phone) ?? profile.phone,
-      })
-      .eq("user_id", profile.user_id);
-    if (profileUpdateError) throw profileUpdateError;
-  }
-
-  const payload = {
-    store_id: storeId,
-    user_id: profile.user_id,
-    role: values.role,
-    status: values.status,
-    invited_by: actorUserId,
-    invited_at: values.status === "invited" ? new Date().toISOString() : null,
-    accepted_at: values.status === "active" ? new Date().toISOString() : null,
-  };
-
-  const { data, error } = await supabaseAny
-    .from("store_members")
-    .insert(payload)
-    .select(MEMBER_SELECT)
-    .single();
+  const { data, error } = await supabase.functions.invoke("master-create-store-user", {
+    body: {
+      store_id: storeId,
+      email,
+      full_name: cleanText(values.fullName),
+      phone: cleanText(values.phone),
+      password: values.password,
+      role: values.role,
+      status: values.status,
+    },
+  });
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, storeId, "store_user.linked", data.id, { user_id: profile.user_id, role: values.role, status: values.status });
-  return { ...(data as StoreUserMember), profile };
+  if (data?.error) throw new Error(data.error);
+  return {
+    ...data.member,
+    profile: data.profile,
+  } as StoreUserMember;
 }
 
 export async function updateStoreUserRole(member: StoreUserMember, role: StoreUserRole, actorUserId: string) {
@@ -258,7 +206,7 @@ export async function updateStoreUserRole(member: StoreUserMember, role: StoreUs
     .single();
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, "store_user.role_updated", member.id, { user_id: member.user_id, from: member.role, to: role });
+  await writeAuditLog(actorUserId, member.store_id, "store_user_role_changed", member.id, { user_id: member.user_id, from: member.role, to: role });
   return { ...(data as StoreUserMember), profile: member.profile };
 }
 
@@ -279,7 +227,7 @@ export async function updateStoreUserStatus(member: StoreUserMember, status: Sto
     .single();
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, `store_user.status.${status}`, member.id, { user_id: member.user_id, from: member.status, to: status });
+  await writeAuditLog(actorUserId, member.store_id, "store_user_status_changed", member.id, { user_id: member.user_id, from: member.status, to: status });
   return { ...(data as StoreUserMember), profile: member.profile };
 }
 
@@ -293,7 +241,7 @@ export async function removeStoreUser(member: StoreUserMember, actorUserId: stri
     .eq("store_id", member.store_id);
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, "store_user.removed", member.id, { user_id: member.user_id, role: member.role });
+  await writeAuditLog(actorUserId, member.store_id, "store_user_removed", member.id, { user_id: member.user_id, role: member.role });
 }
 
 export async function resendStoreUserInvite(member: StoreUserMember, actorUserId: string) {
