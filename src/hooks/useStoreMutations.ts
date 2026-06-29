@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { createStore, updateStore, updateStoreStatus, type StoreFormValues, type StoreStatus } from "@/services/storesService";
+import {
+  createStore,
+  updateStore,
+  updateStoreBranding,
+  updateStoreStatus,
+  type StoreBrandingValues,
+  type StoreFormValues,
+  type StoreStatus,
+} from "@/services/storesService";
 
 export function useCreateStore() {
   const [loading, setLoading] = useState(false);
@@ -55,4 +63,25 @@ export function useUpdateStore() {
   };
 
   return { updateStore: mutate, updateStoreStatus: setStatus, loading, error };
+}
+
+export function useUpdateStoreBranding() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutate = async (storeId: string, values: StoreBrandingValues, userId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await updateStoreBranding(storeId, values, userId);
+    } catch (err: any) {
+      const message = err?.message || "Nao foi possivel salvar a identidade visual.";
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { updateStoreBranding: mutate, loading, error };
 }

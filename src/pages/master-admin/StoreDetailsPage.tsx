@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Edit3, PackageCheck, RotateCcw, ShieldOff, Tags, UserRound, UsersRound } from "lucide-react";
 import { AdminMetricCard } from "@/components/master-admin/AdminMetricCard";
 import { StorePlanBadge } from "@/components/master-admin/StorePlanBadge";
+import { StoreBrandingManager } from "@/components/master-admin/StoreBrandingManager";
 import { StoreStatusBadge } from "@/components/master-admin/StoreStatusBadge";
 import { StoreUsersManager } from "@/components/master-admin/StoreUsersManager";
 import { useAuth } from "@/contexts/AuthContext";
@@ -110,14 +111,7 @@ export default function StoreDetailsPage() {
       )}
 
       {activeTab === "Identidade visual" && (
-        <section className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm md:grid-cols-2">
-          <Info label="Logo" value={store.logo_url} />
-          <Info label="Favicon" value={store.favicon_url} />
-          <ColorInfo label="Cor primaria" value={store.primary_color} />
-          <ColorInfo label="Cor secundaria" value={store.secondary_color} />
-          <ColorInfo label="Cor de destaque" value={store.accent_color} />
-          <Info label="Tema" value={store.theme_mode} />
-        </section>
+        <StoreBrandingManager store={store} onSaved={reload} />
       )}
 
       {activeTab === "Usuarios" && <StoreUsersManager storeId={store.id} />}
@@ -133,18 +127,6 @@ function Info({ label, value, wide }: { label: string; value?: string | null; wi
     <div className={wide ? "md:col-span-2" : undefined}>
       <p className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{label}</p>
       <p className="mt-2 text-sm text-neutral-900">{value || "-"}</p>
-    </div>
-  );
-}
-
-function ColorInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">{label}</p>
-      <div className="mt-2 flex items-center gap-2 text-sm text-neutral-900">
-        <span className="h-6 w-6 rounded-md border border-neutral-200" style={{ backgroundColor: value }} />
-        {value}
-      </div>
     </div>
   );
 }

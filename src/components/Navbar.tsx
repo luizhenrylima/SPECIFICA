@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/contexts/StoreContext";
+import { useStoreTheme } from "@/contexts/StoreThemeContext";
 import { Link, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
@@ -61,6 +62,7 @@ export default function Navbar() {
     error: storeError,
     setCurrentStoreId,
   } = useStore();
+  const storeTheme = useStoreTheme();
   const navigate = useNavigate();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenSupported, setFullscreenSupported] = useState(false);
@@ -153,16 +155,37 @@ export default function Navbar() {
   const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
   const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;
   const canUsePriceTools = isStaff || canManageStore || currentRole === "finance" || currentRole === "financial";
+  const currentStoreName = currentStore?.display_name?.trim() || currentStore?.name || storeTheme.displayName;
 
   return (
     <>
-      <nav className="app-navbar flex items-center justify-between gap-3 bg-black/80 backdrop-blur-lg border-b border-white/10 text-white transition-all duration-300 [&_a]:text-white/70 [&_a:hover]:text-white [&_button]:text-white/70 [&_button:hover]:text-white">
-        <Link to="/catalog" className="flex h-12 shrink-0 items-center overflow-visible group">
-          <img
-            src={logoSpecifica}
-            alt="SPECIFICA"
-            className="h-12 w-auto invert transition-transform duration-300 group-hover:scale-[1.02] md:h-14"
-          />
+      <nav
+        className="app-navbar flex items-center justify-between gap-3 border-b text-white backdrop-blur-lg transition-all duration-300 [&_a]:text-white/75 [&_a:hover]:text-white [&_button]:text-white/75 [&_button:hover]:text-white"
+        style={{
+          backgroundColor: storeTheme.primary,
+          borderColor: `${storeTheme.accent}55`,
+        }}
+      >
+        <Link to="/catalog" className="flex min-h-12 shrink-0 items-center overflow-visible group">
+          {storeTheme.logoUrl ? (
+            <span className="flex h-11 max-w-44 items-center rounded-md bg-white px-3 py-1.5 shadow-sm">
+              <img
+                src={storeTheme.logoUrl}
+                alt={storeTheme.displayName}
+                className="max-h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+            </span>
+          ) : storeTheme.hasStoreBranding ? (
+            <span className="max-w-44 truncate text-sm font-semibold uppercase tracking-[0.18em] text-white">
+              {storeTheme.displayName}
+            </span>
+          ) : (
+            <img
+              src={logoSpecifica}
+              alt="SPECIFICA"
+              className="h-12 w-auto invert transition-transform duration-300 group-hover:scale-[1.02] md:h-14"
+            />
+          )}
         </Link>
 
         <div className="app-navbar-scroll flex flex-1 items-center justify-end gap-2 text-sm sm:gap-4 lg:gap-5">
@@ -241,12 +264,12 @@ export default function Navbar() {
                   >
                     {stores.map(store => (
                       <option key={store.id} value={store.id}>
-                        {store.name}
+                        {store.display_name?.trim() || store.name}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <span className="max-w-40 truncate">{currentStore.name}</span>
+                  <span className="max-w-40 truncate">{currentStoreName}</span>
                 )}
                 <span className="h-3 w-px bg-white/15" aria-hidden="true" />
                 <span className="text-white/50">{roleLabel}</span>

@@ -14,10 +14,17 @@ type GlobalRole = "super_admin" | "user";
 export interface Store {
   id: string;
   name: string;
+  display_name: string | null;
   slug: string;
   status: StoreStatus;
   logo_url: string | null;
+  favicon_url: string | null;
   primary_color: string | null;
+  secondary_color: string | null;
+  accent_color: string | null;
+  background_color: string | null;
+  text_color: string | null;
+  theme_mode: "light" | "dark" | "system";
 }
 
 export interface StoreMember {
@@ -101,7 +108,7 @@ async function fetchStoresForSuperAdmin(userId: string): Promise<AccessibleStore
   const [{ data: stores, error: storesError }, { data: memberships, error: membershipsError }] = await Promise.all([
     supabaseAny
       .from("stores")
-      .select("id, name, slug, status, logo_url, primary_color")
+      .select("id, name, display_name, slug, status, logo_url, favicon_url, primary_color, secondary_color, accent_color, background_color, text_color, theme_mode")
       .in("status", ["active", "trial"])
       .order("name", { ascending: true }),
     supabaseAny
@@ -139,7 +146,7 @@ async function fetchStoresForMember(userId: string): Promise<AccessibleStore[]> 
 
   const { data: stores, error: storesError } = await supabaseAny
     .from("stores")
-    .select("id, name, slug, status, logo_url, primary_color")
+    .select("id, name, display_name, slug, status, logo_url, favicon_url, primary_color, secondary_color, accent_color, background_color, text_color, theme_mode")
     .in("id", storeIds)
     .in("status", ["active", "trial"])
     .order("name", { ascending: true });

@@ -15,11 +15,14 @@ export interface MasterStore {
   email: string | null;
   phone: string | null;
   website: string | null;
+  display_name: string | null;
   logo_url: string | null;
   favicon_url: string | null;
   primary_color: string;
   secondary_color: string;
   accent_color: string;
+  background_color: string;
+  text_color: string;
   theme_mode: StoreThemeMode;
   status: StoreStatus;
   plan: string | null;
@@ -83,11 +86,14 @@ const STORE_SELECT = [
   "email",
   "phone",
   "website",
+  "display_name",
   "logo_url",
   "favicon_url",
   "primary_color",
   "secondary_color",
   "accent_color",
+  "background_color",
+  "text_color",
   "theme_mode",
   "status",
   "plan",
@@ -143,6 +149,81 @@ export function emptyStoreFormValues(): StoreFormValues {
     accent_color: "#000000",
     theme_mode: "light",
     notes: "",
+  };
+}
+
+export interface StoreBrandingValues {
+  display_name: string;
+  logo_url: string;
+  favicon_url: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  background_color: string;
+  text_color: string;
+  theme_mode: StoreThemeMode;
+}
+
+export const STORE_BRANDING_FALLBACK = {
+  primary_color: "#111827",
+  secondary_color: "#6B7280",
+  accent_color: "#C9952F",
+  background_color: "#FFFFFF",
+  text_color: "#111827",
+  theme_mode: "light" as StoreThemeMode,
+};
+
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+function normalizeHexColor(value: string, fallback: string) {
+  const color = value.trim();
+  if (!color) return fallback;
+  if (!HEX_COLOR_PATTERN.test(color)) throw new Error("Informe cores em HEX valido, como #111111.");
+  return color.toUpperCase();
+}
+
+function validateOptionalUrl(value: string, fieldLabel: string) {
+  const url = value.trim();
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("invalid");
+    return url;
+  } catch {
+    throw new Error(`${fieldLabel} precisa ser uma URL valida.`);
+  }
+}
+
+export function storeToBrandingValues(store: MasterStore): StoreBrandingValues {
+  return {
+    display_name: store.display_name ?? "",
+    logo_url: store.logo_url ?? "",
+    favicon_url: store.favicon_url ?? "",
+    primary_color: store.primary_color ?? STORE_BRANDING_FALLBACK.primary_color,
+    secondary_color: store.secondary_color ?? STORE_BRANDING_FALLBACK.secondary_color,
+    accent_color: store.accent_color ?? STORE_BRANDING_FALLBACK.accent_color,
+    background_color: store.background_color ?? STORE_BRANDING_FALLBACK.background_color,
+    text_color: store.text_color ?? STORE_BRANDING_FALLBACK.text_color,
+    theme_mode: store.theme_mode ?? STORE_BRANDING_FALLBACK.theme_mode,
+  };
+}
+
+export function normalizeStoreBrandingValues(values: StoreBrandingValues) {
+  if (!["light", "dark", "system"].includes(values.theme_mode)) {
+    throw new Error("Modo de tema invalido.");
+  }
+
+  return {
+    display_name: cleanText(values.display_name),
+    logo_url: validateOptionalUrl(values.logo_url, "Logo URL"),
+    favicon_url: validateOptionalUrl(values.favicon_url, "Favicon URL"),
+    primary_color: normalizeHexColor(values.primary_color, STORE_BRANDING_FALLBACK.primary_color),
+    secondary_color: normalizeHexColor(values.secondary_color, STORE_BRANDING_FALLBACK.secondary_color),
+    accent_color: normalizeHexColor(values.accent_color, STORE_BRANDING_FALLBACK.accent_color),
+    background_color: normalizeHexColor(values.background_color, STORE_BRANDING_FALLBACK.background_color),
+    text_color: normalizeHexColor(values.text_color, STORE_BRANDING_FALLBACK.text_color),
+    theme_mode: values.theme_mode,
   };
 }
 
@@ -218,6 +299,12 @@ function applyCounts(stores: any[], memberships: any[], products: any[], brands:
       ...store,
       theme_mode: store.theme_mode ?? "light",
       document: store.document ?? store.cnpj ?? null,
+      display_name: store.display_name ?? null,
+      primary_color: store.primary_color ?? STORE_BRANDING_FALLBACK.primary_color,
+      secondary_color: store.secondary_color ?? STORE_BRANDING_FALLBACK.secondary_color,
+      accent_color: store.accent_color ?? STORE_BRANDING_FALLBACK.accent_color,
+      background_color: store.background_color ?? STORE_BRANDING_FALLBACK.background_color,
+      text_color: store.text_color ?? STORE_BRANDING_FALLBACK.text_color,
       users_count: counts.users,
       architects_count: counts.architects,
       sellers_count: counts.sellers,
@@ -313,6 +400,43 @@ export async function updateStoreStatus(storeId: string, status: StoreStatus, us
 
   if (error) throw error;
   await writeAuditLog(userId, storeId, `store.status.${status}`, "store", storeId, { status });
+  return data as MasterStore;
+}
+
+export async function updateStoreBranding(storeId: string, values: StoreBrandingValues, userId: string) {
+  const payload = {
+    ...normalizeStoreBrandingValues(values),
+    updated_by: userId,
+  };
+
+  const { data: previous, error: previousError } = await supabaseAny
+    .from("stores")
+    .select(STORE_SELECT)
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (previousError) throw previousError;
+  if (!previous) throw new Error("Loja nao encontrada.");
+
+  const { data, error } = await supabaseAny
+    .from("stores")
+    .update(payload)
+    .eq("id", storeId)
+    .select(STORE_SELECT)
+    .single();
+
+  if (error) throw error;
+
+  const changedFields = Object.keys(payload)
+    .filter((key) => key !== "updated_by")
+    .filter((key) => (previous as any)[key] !== (data as any)[key]);
+
+  await writeAuditLog(userId, storeId, "store_branding_updated", "store", storeId, {
+    changed_fields: changedFields,
+    before: changedFields.reduce((acc, key) => ({ ...acc, [key]: (previous as any)[key] ?? null }), {}),
+    after: changedFields.reduce((acc, key) => ({ ...acc, [key]: (data as any)[key] ?? null }), {}),
+  });
+
   return data as MasterStore;
 }
 

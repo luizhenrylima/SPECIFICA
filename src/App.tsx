@@ -7,6 +7,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { StoreProvider, useStore } from "@/contexts/StoreContext";
+import { StoreThemeProvider } from "@/contexts/StoreThemeContext";
 import Navbar from "@/components/Navbar";
 import CompareBar from "@/components/CompareBar";
 import CookieConsent from "@/components/CookieConsent";
@@ -244,12 +245,14 @@ const App = () => (
         <AppErrorBoundary>
           <AuthProvider>
             <StoreProvider>
-              <CompareProvider>
-                <AppRoutes />
-                <CompareBar />
-                <WelcomeModal />
-                <CookieConsent />
-              </CompareProvider>
+              <StoreThemeProvider>
+                <CompareProvider>
+                  <AppRoutes />
+                  <CompareBar />
+                  <WelcomeModal />
+                  <CookieConsent />
+                </CompareProvider>
+              </StoreThemeProvider>
             </StoreProvider>
           </AuthProvider>
         </AppErrorBoundary>
