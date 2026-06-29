@@ -109,7 +109,7 @@ async function fetchStoresForSuperAdmin(userId: string): Promise<AccessibleStore
     supabaseAny
       .from("stores")
       .select("id, name, display_name, slug, status, logo_url, favicon_url, primary_color, secondary_color, accent_color, background_color, text_color, theme_mode")
-      .in("status", ["active", "trial"])
+      .in("status", ["active", "trial", "pending_setup"])
       .order("name", { ascending: true }),
     supabaseAny
       .from("store_members")
@@ -148,7 +148,7 @@ async function fetchStoresForMember(userId: string): Promise<AccessibleStore[]> 
     .from("stores")
     .select("id, name, display_name, slug, status, logo_url, favicon_url, primary_color, secondary_color, accent_color, background_color, text_color, theme_mode")
     .in("id", storeIds)
-    .in("status", ["active", "trial"])
+    .in("status", ["active", "trial", "pending_setup"])
     .order("name", { ascending: true });
 
   if (storesError) throw storesError;
