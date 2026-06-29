@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStore } from '@/contexts/StoreContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +32,7 @@ type RelationshipPostType =
 
 type RelationshipPost = {
   id: string;
+  store_id: string | null;
   post_type: RelationshipPostType;
   title: string;
   summary: string | null;
@@ -65,6 +67,8 @@ const emptyPostDraft = {
   is_published: true,
 };
 
+const NO_ACTIVE_STORE_MESSAGE = 'Nenhuma loja ativa selecionada. Selecione uma loja para continuar.';
+
 function formatDate(value: string | null) {
   if (!value) return 'Sem data definida';
   return new Intl.DateTimeFormat('pt-BR', {
@@ -82,6 +86,7 @@ function postTypeInfo(type: RelationshipPostType) {
 
 export default function RelationshipPage() {
   const { user, isAdmin, isManager } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const canPublish = isAdmin || isManager;
   const [posts, setPosts] = useState<RelationshipPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,12 +99,18 @@ export default function RelationshipPage() {
   );
 
   const loadRelationshipArea = async () => {
-    if (!user) return;
+    if (!user || storeLoading) return;
+    if (!currentStoreId) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     const postsRes = await (supabase as any)
       .from('relationship_posts')
-      .select('id, post_type, title, summary, body, event_date, cta_label, cta_url, cover_image_url, is_published, created_at')
+      .select('id, store_id, post_type, title, summary, body, event_date, cta_label, cta_url, cover_image_url, is_published, created_at')
+      .or(`store_id.eq.${currentStoreId},store_id.is.null`)
       .order('event_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
 
@@ -115,10 +126,14 @@ export default function RelationshipPage() {
 
   useEffect(() => {
     void loadRelationshipArea();
-  }, [user?.id]);
+  }, [user?.id, currentStoreId, storeLoading]);
 
   const publishPost = async () => {
     if (!user || !canPublish) return;
+    if (!currentStoreId) {
+      toast({ title: 'Nenhuma loja ativa selecionada', description: NO_ACTIVE_STORE_MESSAGE, variant: 'destructive' });
+      return;
+    }
     const title = sanitizePlainText(draft.title, 140);
     if (title.length < 2) {
       toast({ title: 'Informe o título da publicação', variant: 'destructive' });
@@ -137,12 +152,13 @@ export default function RelationshipPage() {
       cover_image_url: sanitizePlainText(draft.cover_image_url, 500) || null,
       is_published: draft.is_published,
       created_by: user.id,
+      store_id: currentStoreId,
     };
 
     const { data, error } = await (supabase as any)
       .from('relationship_posts')
       .insert(payload)
-      .select('id, post_type, title, summary, body, event_date, cta_label, cta_url, cover_image_url, is_published, created_at')
+      .select('id, store_id, post_type, title, summary, body, event_date, cta_label, cta_url, cover_image_url, is_published, created_at')
       .single();
 
     setSavingPost(false);
@@ -195,7 +211,11 @@ export default function RelationshipPage() {
               <p className="text-sm text-[#77736B]">Eventos, lançamentos, treinamentos, campanhas, benefícios e tendências em um só lugar.</p>
             </CardHeader>
             <CardContent className="grid gap-4">
-              {loading ? (
+              {!storeLoading && !currentStoreId ? (
+                <p className="rounded-2xl border border-dashed border-[#E5E2DC] p-6 text-sm text-[#77736B]">
+                  {NO_ACTIVE_STORE_MESSAGE}
+                </p>
+              ) : loading ? (
                 <p className="rounded-2xl border border-dashed border-[#E5E2DC] p-6 text-sm text-[#77736B]">
                   Carregando publicações...
                 </p>
@@ -258,7 +278,8 @@ export default function RelationshipPage() {
                 <Input type="datetime-local" value={draft.event_date} onChange={event => setDraft(current => ({ ...current, event_date: event.target.value }))} />
                 <Input placeholder="Texto do botão (opcional)" value={draft.cta_label} onChange={event => setDraft(current => ({ ...current, cta_label: event.target.value }))} />
                 <Input placeholder="Link do botão (opcional)" value={draft.cta_url} onChange={event => setDraft(current => ({ ...current, cta_url: event.target.value }))} />
-                <Button onClick={() => void publishPost()} disabled={savingPost}>
+                {!storeLoading && !currentStoreId && <p className="text-sm text-[#77736B]">{NO_ACTIVE_STORE_MESSAGE}</p>}
+                <Button onClick={() => void publishPost()} disabled={savingPost || !currentStoreId}>
                   {savingPost ? 'Publicando...' : 'Publicar'}
                 </Button>
               </CardContent>

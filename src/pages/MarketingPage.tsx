@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStore } from "@/contexts/StoreContext";
 import { toast } from "sonner";
 import logoAcervo from "@/assets/bio/logo-acervo-bio.png";
 
@@ -17,6 +18,7 @@ import logoAcervo from "@/assets/bio/logo-acervo-bio.png";
 ============================================================ */
 
 const PROGRESS_KEY = "acervo_mkt_progress_v1";
+const NO_ACTIVE_STORE_MESSAGE = "Nenhuma loja ativa selecionada. Selecione uma loja para continuar.";
 
 const WEEKLY_TEMPLATE: Record<number, { label: string; tag: string; color: string }> = {
   1: { label: "Post para Arquitetos", tag: "Arquitetos", color: "#7C6A4D" },
@@ -27,7 +29,7 @@ const WEEKLY_TEMPLATE: Record<number, { label: string; tag: string; color: strin
   6: { label: "Estamos Atendendo · Venha visitar", tag: "Loja", color: "#4A7C59" },
 };
 
-type Marker = { date: string; title: string; type: "comemorativa" | "marco" | "casacor" | "lancamento" | "custom"; emoji?: string; id?: string; description?: string | null; previewImageUrl?: string | null };
+type Marker = { date: string; title: string; type: "comemorativa" | "marco" | "casacor" | "lancamento" | "custom"; emoji?: string; id?: string; storeId?: string | null; description?: string | null; previewImageUrl?: string | null };
 
 const today = new Date();
 const launchDate = new Date(today);
@@ -99,6 +101,7 @@ const isCasaCor = (iso: string) => iso >= "2026-06-26" && iso <= "2026-08-30";
 ============================================================ */
 function MarketingContent() {
   const { signOut } = useAuth();
+  const { currentStoreId, loading: storeLoading } = useStore();
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(4);
   const [selected, setSelected] = useState<string | null>(null);
@@ -121,18 +124,27 @@ function MarketingContent() {
 
   useEffect(() => {
     try { const raw = localStorage.getItem(PROGRESS_KEY); if (raw) setProgress(JSON.parse(raw)); } catch {}
-    loadCustom();
   }, []);
 
+  useEffect(() => {
+    void loadCustom();
+  }, [currentStoreId, storeLoading]);
+
   async function loadCustom() {
+    if (storeLoading) return;
+    if (!currentStoreId) {
+      setCustomEvents([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("marketing_events")
-      .select("id, event_date, title, description, event_type, preview_image_url")
+      .select("id, store_id, event_date, title, description, event_type, preview_image_url")
+      .or(`store_id.eq.${currentStoreId},store_id.is.null`)
       .order("event_date", { ascending: true });
     if (error) { console.error(error); return; }
     setCustomEvents(
       (data || []).map((r: any) => ({
-        id: r.id, date: r.event_date, title: r.title,
+        id: r.id, storeId: r.store_id ?? null, date: r.event_date, title: r.title,
         description: r.description, type: "custom" as const, emoji: r.event_type || "📌",
         previewImageUrl: r.preview_image_url || null,
       }))
@@ -148,6 +160,10 @@ function MarketingContent() {
   };
 
   function openAdd() {
+    if (!currentStoreId) {
+      toast.error(NO_ACTIVE_STORE_MESSAGE);
+      return;
+    }
     if (!selected) setSelected(new Date().toISOString().slice(0, 10));
     setEditingId(null);
     setNewTitle(""); setNewDesc(""); setNewEmoji("📌"); setNewPreviewUrl(null);
@@ -156,6 +172,10 @@ function MarketingContent() {
 
   function openEdit(m: Marker) {
     if (!m.id) return;
+    if (!currentStoreId || m.storeId !== currentStoreId) {
+      toast.error(NO_ACTIVE_STORE_MESSAGE);
+      return;
+    }
     setEditingId(m.id);
     setSelected(m.date);
     setNewTitle(m.title);
@@ -166,11 +186,15 @@ function MarketingContent() {
   }
 
   async function uploadPreviewImage(file: File) {
+    if (!currentStoreId) {
+      toast.error(NO_ACTIVE_STORE_MESSAGE);
+      return;
+    }
     if (!file.type.startsWith("image/")) { toast.error("Selecione uma imagem"); return; }
     if (file.size > 8 * 1024 * 1024) { toast.error("Imagem muito grande (máx 8MB)"); return; }
     setUploadingPreview(true);
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `previews/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `previews/${currentStoreId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error: upErr } = await supabase.storage.from("marketing-previews").upload(path, file, {
       contentType: file.type, upsert: false,
     });
@@ -183,6 +207,10 @@ function MarketingContent() {
 
   async function saveEvent() {
     if (!selected || !newTitle.trim()) return;
+    if (!currentStoreId) {
+      toast.error(NO_ACTIVE_STORE_MESSAGE);
+      return;
+    }
     setSaving(true);
     let error;
     const payload = {
@@ -191,9 +219,9 @@ function MarketingContent() {
       preview_image_url: newPreviewUrl || null,
     };
     if (editingId) {
-      ({ error } = await supabase.from("marketing_events").update(payload).eq("id", editingId));
+      ({ error } = await supabase.from("marketing_events").update(payload).eq("id", editingId).eq("store_id", currentStoreId));
     } else {
-      ({ error } = await supabase.from("marketing_events").insert(payload));
+      ({ error } = await supabase.from("marketing_events").insert({ ...payload, store_id: currentStoreId }));
     }
     setSaving(false);
     if (error) { toast.error("Erro ao salvar"); return; }
@@ -204,7 +232,11 @@ function MarketingContent() {
   }
 
   async function deleteEvent(id: string) {
-    const { error } = await supabase.from("marketing_events").delete().eq("id", id);
+    if (!currentStoreId) {
+      toast.error(NO_ACTIVE_STORE_MESSAGE);
+      return;
+    }
+    const { error } = await supabase.from("marketing_events").delete().eq("id", id).eq("store_id", currentStoreId);
     if (error) { toast.error("Erro ao excluir"); return; }
     toast.success("Evento removido");
     loadCustom();
@@ -591,6 +623,11 @@ function MarketingContent() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        {!storeLoading && !currentStoreId && (
+          <div className="mb-6 rounded-xl border border-[#d9cdb6] bg-white p-4 text-sm text-[#8a7350]">
+            {NO_ACTIVE_STORE_MESSAGE}
+          </div>
+        )}
         {/* Hero cards */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {[
@@ -815,7 +852,7 @@ function MarketingContent() {
                           </div>
                           {m.description && <div className="text-xs text-[#8a7350] mt-1">{m.description}</div>}
                         </div>
-                        {m.type === "custom" && m.id && (
+                        {m.type === "custom" && m.id && m.storeId === currentStoreId && (
                           <div className="flex items-center gap-1 shrink-0">
                             <button onClick={() => openEdit(m)} className="text-[#8a7350] hover:text-[#2a2520] p-1" title="Editar">
                               <Pencil className="w-4 h-4" />
@@ -840,7 +877,7 @@ function MarketingContent() {
                   }`}>
                   {progress[selected!] ? <><CheckCircle2 className="w-4 h-4 mr-2" />Publicado</> : <><Circle className="w-4 h-4 mr-2" />Marcar como publicado</>}
                 </Button>
-                <Button onClick={openAdd} variant="outline"
+                <Button onClick={openAdd} variant="outline" disabled={!currentStoreId}
                   className="h-10 border-[#b89968] text-[#8a7350] hover:bg-[#f5efe6] hover:text-[#2a2520]">
                   <Plus className="w-4 h-4 mr-2" />Adicionar à agenda
                 </Button>
@@ -894,7 +931,8 @@ function MarketingContent() {
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
             onClick={openAdd}
-            className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#2a2520] text-[#f5efe6] shadow-xl hover:bg-[#3a3530] flex items-center justify-center z-40"
+            className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-[#2a2520] text-[#f5efe6] shadow-xl hover:bg-[#3a3530] disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center z-40"
+            disabled={!currentStoreId}
             title="Adicionar evento"
           >
             <Plus className="w-6 h-6" />
@@ -986,11 +1024,12 @@ function MarketingContent() {
                 <div className="flex gap-2 pt-2">
                   <Button onClick={() => { setShowAddModal(false); setEditingId(null); }} variant="outline"
                     className="flex-1 border-[#d9cdb6] text-[#8a7350] hover:bg-[#faf7f2]">Cancelar</Button>
-                  <Button onClick={saveEvent} disabled={!newTitle.trim() || !selected || saving}
+                  <Button onClick={saveEvent} disabled={!newTitle.trim() || !selected || saving || !currentStoreId}
                     className="flex-1 bg-[#2a2520] text-[#f5efe6] hover:bg-[#3a3530]">
                     {saving ? "Salvando..." : editingId ? "Atualizar" : "Salvar"}
                   </Button>
                 </div>
+                {!currentStoreId && <p className="text-xs text-[#8a7350]">{NO_ACTIVE_STORE_MESSAGE}</p>}
               </div>
             </motion.div>
           </motion.div>
