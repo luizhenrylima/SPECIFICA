@@ -16,7 +16,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
-import logoAcervo from "@/assets/logo-acervo-white.png";
+import logoSpecifica from "@/assets/logo-specifica.png";
 
 const getFullscreenElement = () =>
   document.fullscreenElement || (document as any).webkitFullscreenElement || null;
@@ -52,6 +52,10 @@ export default function Navbar() {
     currentStoreId,
     currentRole,
     isSuperAdmin,
+    isStoreAdmin,
+    isManager: isStoreManager,
+    isSeller: isStoreSeller,
+    isArchitect: isStoreArchitect,
     loading: storeLoading,
     error: storeError,
     setCurrentStoreId,
@@ -142,15 +146,21 @@ export default function Navbar() {
   const navTextClass = "shrink-0 text-[10px] uppercase tracking-[0.15em] transition-colors link-underline";
   const navIconTextClass = `flex shrink-0 items-center gap-1.5 ${navTextClass}`;
   const roleLabel = isSuperAdmin ? roleLabels.super_admin : currentRole ? roleLabels[currentRole] ?? currentRole : "sem papel";
+  const canManagePlatform = isAdmin || isSuperAdmin;
+  const canManageStore = canManagePlatform || isStoreAdmin || isManager || isStoreManager;
+  const canUseRoutine = canManageStore || isSeller || isStoreSeller;
+  const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
+  const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;
+  const canUsePriceTools = isStaff || canManageStore || currentRole === "finance";
 
   return (
     <>
       <nav className="app-navbar flex items-center justify-between gap-3 bg-black/80 backdrop-blur-lg border-b border-white/10 text-white transition-all duration-300 [&_a]:text-white/70 [&_a:hover]:text-white [&_button]:text-white/70 [&_button:hover]:text-white">
-        <Link to="/" className="flex h-12 shrink-0 items-center overflow-visible group">
+        <Link to="/catalog" className="flex h-12 shrink-0 items-center overflow-visible group">
           <img
-            src={logoAcervo}
-            alt="Acervo 10.55"
-            className="h-12 w-auto transition-transform duration-300 group-hover:scale-[1.02] md:h-14"
+            src={logoSpecifica}
+            alt="SPECIFICA"
+            className="h-12 w-auto invert transition-transform duration-300 group-hover:scale-[1.02] md:h-14"
           />
         </Link>
 
@@ -161,34 +171,38 @@ export default function Navbar() {
           <Link to="/curadoria" className={navTextClass}>
             Curadoria
           </Link>
-          <Link
-            to="/relacionamento"
-            className="hidden shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] transition-colors link-underline md:flex"
-            title="Relacionamento"
-          >
-            <Handshake size={14} />
-            Relacionamento
-          </Link>
-          <Link
-            to="/projects"
-            className={navIconTextClass}
-            title={isAdmin ? "Todos os Projetos" : isSeller ? "Painel do Vendedor" : "Meus Projetos"}
-          >
-            {isStaff ? <Pencil size={14} /> : <FolderOpen size={14} />}
-            Projetos
-          </Link>
+          {canSeeRelationship && (
+            <Link
+              to="/relacionamento"
+              className="hidden shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] transition-colors link-underline md:flex"
+              title="Relacionamento"
+            >
+              <Handshake size={14} />
+              Relacionamento
+            </Link>
+          )}
+          {canUseProjects && (
+            <Link
+              to="/projects"
+              className={navIconTextClass}
+              title={canManageStore ? "Todos os Projetos" : canUseRoutine ? "Painel do Vendedor" : "Meus Projetos"}
+            >
+              {canUseRoutine ? <Pencil size={14} /> : <FolderOpen size={14} />}
+              Projetos
+            </Link>
+          )}
 
-          {isStaff && (
+          {canUsePriceTools && (
             <Link to="/consultor-valores" className={navIconTextClass} title="Cotacao">
               <BadgeDollarSign size={14} />
               Cota&ccedil;&atilde;o
             </Link>
           )}
 
-          {isStaff && (
-            <Link to={isSeller ? "/rotina" : "/gestao"} className={navIconTextClass} title={isSeller ? "Rotina" : "Gestao"}>
+          {canUseRoutine && (
+            <Link to={isSeller || isStoreSeller ? "/rotina" : "/gestao"} className={navIconTextClass} title={isSeller || isStoreSeller ? "Rotina" : "Gestao"}>
               <BriefcaseBusiness size={14} />
-              {isSeller ? "Rotina" : <>Gest&atilde;o</>}
+              {isSeller || isStoreSeller ? "Rotina" : <>Gest&atilde;o</>}
             </Link>
           )}
 
@@ -196,14 +210,14 @@ export default function Navbar() {
             <Heart size={18} />
           </Link>
 
-          {(isAdmin || isManager) && (
+          {canManageStore && (
             <Link to="/admin/analytics" className={navIconTextClass} title="Performance & Curadoria">
               <BarChart3 size={14} />
               Performance
             </Link>
           )}
 
-          {isAdmin && (
+          {canManagePlatform && (
             <Link to="/admin" className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/80">
               <Settings size={14} />
               Admin

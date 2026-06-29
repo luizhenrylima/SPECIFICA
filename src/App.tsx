@@ -6,13 +6,12 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
-import { StoreProvider } from "@/contexts/StoreContext";
+import { StoreProvider, useStore } from "@/contexts/StoreContext";
 import Navbar from "@/components/Navbar";
 import CompareBar from "@/components/CompareBar";
 import CookieConsent from "@/components/CookieConsent";
 import WelcomeModal from "@/components/WelcomeModal";
 import AuthPage from "@/pages/AuthPage";
-import LandingPage from "@/pages/LandingPage";
 import CatalogPage from "@/pages/CatalogPage";
 import CuradoriaPage from "@/pages/CuradoriaPage";
 import BrandCatalogPage from "@/pages/BrandCatalogPage";
@@ -108,6 +107,18 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "management" | "seller" | "staff" }) {
   const { user, loading, isAdmin, isManager, isSeller, isStaff } = useAuth();
+  const {
+    currentRole,
+    isSuperAdmin,
+    isStoreAdmin,
+    isManager: isStoreManager,
+    isSeller: isStoreSeller,
+  } = useStore();
+  const canAdminPlatform = isAdmin || isSuperAdmin;
+  const canManageStore = canAdminPlatform || isStoreAdmin || isManager || isStoreManager;
+  const canUseSellerArea = canManageStore || isSeller || isStoreSeller;
+  const canUseStaffArea = isStaff || canManageStore || currentRole === "finance";
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -117,24 +128,24 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   }
   if (!user) return <Navigate to="/auth" replace />;
   if (area === "admin") {
-    if (isAdmin) return <>{children}</>;
+    if (canAdminPlatform) return <>{children}</>;
     if (isManager) return <Navigate to="/gestao" replace />;
     if (isSeller) return <Navigate to="/rotina" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/catalog" replace />;
   }
   if (area === "management") {
-    if (isAdmin || isManager) return <>{children}</>;
+    if (canManageStore) return <>{children}</>;
     if (isSeller) return <Navigate to="/rotina" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/catalog" replace />;
   }
   if (area === "staff") {
-    if (isStaff) return <>{children}</>;
-    return <Navigate to="/" replace />;
+    if (canUseStaffArea) return <>{children}</>;
+    return <Navigate to="/catalog" replace />;
   }
-  if (isSeller) return <>{children}</>;
+  if (canUseSellerArea) return <>{children}</>;
   if (isAdmin) return <Navigate to="/gestao" replace />;
   if (isManager) return <Navigate to="/gestao" replace />;
-  return <Navigate to="/" replace />;
+  return <Navigate to="/catalog" replace />;
 }
 
 function AuthRoute() {
@@ -144,14 +155,14 @@ function AuthRoute() {
     new URLSearchParams(location.search).get("reset") === "password" ||
     location.hash.includes("type=recovery");
 
-  return user && !isPasswordRecovery ? <Navigate to="/" replace /> : <AuthPage />;
+  return user && !isPasswordRecovery ? <Navigate to="/catalog" replace /> : <AuthPage />;
 }
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={<AuthRoute />} />
-      <Route path="/" element={<ProtectedRoute><Navbar /><LandingPage /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><Navigate to="/catalog" replace /></ProtectedRoute>} />
       <Route path="/catalog" element={<ProtectedRoute><Navbar /><CatalogPage /></ProtectedRoute>} />
       <Route path="/curadoria" element={<ProtectedRoute><Navbar /><CuradoriaPage /></ProtectedRoute>} />
       <Route path="/relacionamento" element={<ProtectedRoute><Navbar /><RelationshipPage /></ProtectedRoute>} />
