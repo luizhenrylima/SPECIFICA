@@ -96,7 +96,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (storeError) throw storeError;
     if (!store) return jsonResponse({ error: "Loja nao encontrada." }, 404);
-    if (!["active", "trial"].includes(store.status)) return jsonResponse({ error: "Esta loja esta suspensa ou inativa." }, 400);
+    if (!["active", "trial", "pending_setup"].includes(store.status)) {
+      return jsonResponse({ error: "Esta loja esta suspensa ou inativa." }, 400);
+    }
 
     const existingAuthUser = await findAuthUserByEmail(auth.supabase, email);
     if (existingAuthUser?.id) {

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 const supabaseAny = supabase as any;
 
@@ -62,6 +63,21 @@ const PROFILE_SELECT = "user_id, full_name, email, phone, active, approved, last
 function cleanText(value: string) {
   const trimmed = value.replace(/\s+/g, " ").trim();
   return trimmed.length ? trimmed : null;
+}
+
+async function getFunctionErrorMessage(error: unknown) {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (typeof body?.error === "string") return body.error;
+      if (typeof body?.message === "string") return body.message;
+    } catch {
+      // Fall back to the SDK message below.
+    }
+  }
+
+  if (error instanceof Error) return error.message;
+  return "Nao foi possivel criar o usuario. Tente novamente.";
 }
 
 export function normalizeEmail(email: string) {
@@ -185,7 +201,7 @@ export async function createStoreUser(storeId: string, values: StoreUserFormValu
     },
   });
 
-  if (error) throw error;
+  if (error) throw new Error(await getFunctionErrorMessage(error));
   if (data?.error) throw new Error(data.error);
   return {
     ...data.member,
