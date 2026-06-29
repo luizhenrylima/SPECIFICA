@@ -2903,7 +2903,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           custom_welcome_text: string | null
+          document: string | null
           email: string | null
+          favicon_url: string | null
           id: string
           legal_name: string | null
           logo_url: string | null
@@ -2911,8 +2913,10 @@ export type Database = {
           max_products: number | null
           max_users: number | null
           name: string
+          notes: string | null
           owner_user_id: string | null
           phone: string | null
+          plan: string | null
           plan_id: string | null
           primary_color: string
           secondary_color: string
@@ -2921,8 +2925,10 @@ export type Database = {
           status: string
           storage_limit_mb: number | null
           text_color: string
+          theme_mode: string
           updated_at: string
           updated_by: string | null
+          website: string | null
         }
         Insert: {
           accent_color?: string
@@ -2934,7 +2940,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           custom_welcome_text?: string | null
+          document?: string | null
           email?: string | null
+          favicon_url?: string | null
           id?: string
           legal_name?: string | null
           logo_url?: string | null
@@ -2942,8 +2950,10 @@ export type Database = {
           max_products?: number | null
           max_users?: number | null
           name: string
+          notes?: string | null
           owner_user_id?: string | null
           phone?: string | null
+          plan?: string | null
           plan_id?: string | null
           primary_color?: string
           secondary_color?: string
@@ -2952,8 +2962,10 @@ export type Database = {
           status?: string
           storage_limit_mb?: number | null
           text_color?: string
+          theme_mode?: string
           updated_at?: string
           updated_by?: string | null
+          website?: string | null
         }
         Update: {
           accent_color?: string
@@ -2965,7 +2977,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           custom_welcome_text?: string | null
+          document?: string | null
           email?: string | null
+          favicon_url?: string | null
           id?: string
           legal_name?: string | null
           logo_url?: string | null
@@ -2973,8 +2987,10 @@ export type Database = {
           max_products?: number | null
           max_users?: number | null
           name?: string
+          notes?: string | null
           owner_user_id?: string | null
           phone?: string | null
+          plan?: string | null
           plan_id?: string | null
           primary_color?: string
           secondary_color?: string
@@ -2983,8 +2999,10 @@ export type Database = {
           status?: string
           storage_limit_mb?: number | null
           text_color?: string
+          theme_mode?: string
           updated_at?: string
           updated_by?: string | null
+          website?: string | null
         }
         Relationships: [
           {

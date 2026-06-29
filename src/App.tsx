@@ -20,6 +20,12 @@ import ProductDetailPage from "@/pages/ProductDetailPage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import AdminPage from "@/pages/AdminPage";
+import MasterAdminDashboard from "@/pages/master-admin/MasterAdminDashboard";
+import MasterAdminPlaceholderPage from "@/pages/master-admin/MasterAdminPlaceholderPage";
+import StoreDetailsPage from "@/pages/master-admin/StoreDetailsPage";
+import StoreFormPage from "@/pages/master-admin/StoreFormPage";
+import StoresPage from "@/pages/master-admin/StoresPage";
+import { MasterAdminLayout } from "@/components/master-admin/MasterAdminLayout";
 import NotFound from "@/pages/NotFound";
 import SharedProjectPage from "@/pages/SharedProjectPage";
 import ComparePage from "@/pages/ComparePage";
@@ -31,6 +37,7 @@ import MarketingPage from "@/pages/MarketingPage";
 import PriceConsultantPage from "@/pages/PriceConsultantPage";
 import OperationsPage from "@/pages/OperationsPage";
 import RelationshipPage from "@/pages/RelationshipPage";
+import { FileClock, Package, Settings, ShieldCheck, Tags, Users } from "lucide-react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -165,6 +172,14 @@ function MasterAdminRoute({ children }: { children: ReactNode }) {
   return <Navigate to="/catalog" replace />;
 }
 
+function MasterAdminShell({ children }: { children: ReactNode }) {
+  return (
+    <MasterAdminRoute>
+      <MasterAdminLayout>{children}</MasterAdminLayout>
+    </MasterAdminRoute>
+  );
+}
+
 function AuthRoute() {
   const { user } = useAuth();
   const location = useLocation();
@@ -193,7 +208,19 @@ function AppRoutes() {
       <Route path="/consultor-valores" element={<RoleRoute area="staff"><Navbar /><PriceConsultantPage /></RoleRoute>} />
       <Route path="/gestao/*" element={<RoleRoute area="management"><Navbar /><OperationsPage /></RoleRoute>} />
       <Route path="/rotina/*" element={<RoleRoute area="seller"><Navbar /><OperationsPage /></RoleRoute>} />
-      <Route path="/admin" element={<MasterAdminRoute><Navbar /><AdminPage /></MasterAdminRoute>} />
+      <Route path="/admin" element={<MasterAdminShell><MasterAdminDashboard /></MasterAdminShell>} />
+      <Route path="/admin/stores" element={<MasterAdminShell><StoresPage /></MasterAdminShell>} />
+      <Route path="/admin/stores/new" element={<MasterAdminShell><StoreFormPage mode="create" /></MasterAdminShell>} />
+      <Route path="/admin/stores/:storeId" element={<MasterAdminShell><StoreDetailsPage /></MasterAdminShell>} />
+      <Route path="/admin/stores/:storeId/edit" element={<MasterAdminShell><StoreFormPage mode="edit" /></MasterAdminShell>} />
+      <Route path="/admin/catalog" element={<MasterAdminRoute><AdminPage /></MasterAdminRoute>} />
+      <Route path="/admin/products" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Produtos" description="A gestao do catalogo central sera consolidada nesta area. Por enquanto, use Catalogo para acessar o admin legado." icon={Package} /></MasterAdminShell>} />
+      <Route path="/admin/brands" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Marcas" description="A gestao central de marcas sera implementada em fase futura." icon={Tags} /></MasterAdminShell>} />
+      <Route path="/admin/users" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Usuarios globais" description="A gestao global de usuarios e vinculos por loja sera implementada na Fase 3." icon={Users} /></MasterAdminShell>} />
+      <Route path="/admin/access" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Acessos" description="A matriz de acessos por loja, usuario e perfil sera implementada na Fase 3." icon={ShieldCheck} /></MasterAdminShell>} />
+      <Route path="/admin/audit" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Auditoria" description="Os logs detalhados de alteracoes administrativas serao expandidos em fase futura." icon={FileClock} /></MasterAdminShell>} />
+      <Route path="/admin/settings" element={<MasterAdminShell><MasterAdminPlaceholderPage title="Configuracoes" description="Configuracoes globais da plataforma SPECIFICA ficarao centralizadas aqui." icon={Settings} /></MasterAdminShell>} />
+      <Route path="/admin/legacy" element={<Navigate to="/admin/catalog" replace />} />
       <Route path="/admin/precos" element={<Navigate to="/consultor-valores" replace />} />
       <Route path="/compare" element={<ProtectedRoute><Navbar /><ComparePage /></ProtectedRoute>} />
       <Route path="/admin/analytics" element={<RoleRoute area="management"><Navbar /><AdminAnalyticsPage /></RoleRoute>} />
