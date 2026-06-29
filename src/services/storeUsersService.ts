@@ -14,6 +14,8 @@ export const STORE_USER_ROLES: Array<{ value: StoreUserRole; label: string; desc
   { value: "architect", label: "Arquiteto", description: "Acessa catalogo, favoritos, projetos e orcamentos." },
 ];
 
+export const STORE_ADMIN_CREATABLE_ROLES: StoreUserRole[] = ["manager", "seller", "financial", "architect"];
+
 export const STORE_USER_STATUSES: Array<{ value: StoreUserStatus; label: string }> = [
   { value: "active", label: "Ativo" },
   { value: "inactive", label: "Inativo" },
@@ -56,6 +58,8 @@ export interface StoreUserFormValues {
   role: StoreUserRole;
   status: StoreUserStatus;
 }
+
+export type StoreUserCreator = "master" | "store_admin";
 
 const MEMBER_SELECT = "id, store_id, user_id, role, status, invited_by, invited_at, accepted_at, created_at, updated_at";
 const PROFILE_SELECT = "user_id, full_name, email, phone, active, approved, last_login_at, created_at";
@@ -116,11 +120,11 @@ export function validateStoreUserForm(values: StoreUserFormValues) {
   validateStatus(values.status);
 }
 
-async function writeAuditLog(actorUserId: string, storeId: string, action: string, memberId: string | null, metadata: Record<string, unknown>) {
+async function writeAuditLog(actorUserId: string, storeId: string, action: string, memberId: string | null, metadata: Record<string, unknown>, actorRole = "master_admin") {
   try {
     await supabaseAny.from("audit_logs").insert({
       actor_user_id: actorUserId,
-      actor_role: "master_admin",
+      actor_role: actorRole,
       store_id: storeId,
       action,
       entity_type: "store_member",
@@ -185,11 +189,16 @@ async function assertCanChangeLastStoreAdmin(member: StoreUserMember, nextRole?:
   }
 }
 
-export async function createStoreUser(storeId: string, values: StoreUserFormValues): Promise<StoreUserMember> {
+export async function createStoreUser(storeId: string, values: StoreUserFormValues, creator: StoreUserCreator = "master"): Promise<StoreUserMember> {
   validateStoreUserForm(values);
+  if (creator === "store_admin" && !STORE_ADMIN_CREATABLE_ROLES.includes(values.role)) {
+    throw new Error("Admin da loja pode criar apenas gerente, vendedor, financeiro ou arquiteto.");
+  }
+
   const email = normalizeEmail(values.email);
 
-  const { data, error } = await supabase.functions.invoke("master-create-store-user", {
+  const functionName = creator === "store_admin" ? "store-admin-create-user" : "master-create-store-user";
+  const { data, error } = await supabase.functions.invoke(functionName, {
     body: {
       store_id: storeId,
       email,
@@ -209,7 +218,7 @@ export async function createStoreUser(storeId: string, values: StoreUserFormValu
   } as StoreUserMember;
 }
 
-export async function updateStoreUserRole(member: StoreUserMember, role: StoreUserRole, actorUserId: string) {
+export async function updateStoreUserRole(member: StoreUserMember, role: StoreUserRole, actorUserId: string, actorRole = "master_admin") {
   validateRole(role);
   await assertCanChangeLastStoreAdmin(member, role);
 
@@ -222,11 +231,18 @@ export async function updateStoreUserRole(member: StoreUserMember, role: StoreUs
     .single();
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, "store_user_role_changed", member.id, { user_id: member.user_id, from: member.role, to: role });
+  await writeAuditLog(
+    actorUserId,
+    member.store_id,
+    actorRole === "store_admin" ? "store_user_role_changed_by_store_admin" : "store_user_role_changed",
+    member.id,
+    { user_id: member.user_id, from: member.role, to: role },
+    actorRole
+  );
   return { ...(data as StoreUserMember), profile: member.profile };
 }
 
-export async function updateStoreUserStatus(member: StoreUserMember, status: StoreUserStatus, actorUserId: string) {
+export async function updateStoreUserStatus(member: StoreUserMember, status: StoreUserStatus, actorUserId: string, actorRole = "master_admin") {
   validateStatus(status);
   await assertCanChangeLastStoreAdmin(member, undefined, status);
 
@@ -243,11 +259,11 @@ export async function updateStoreUserStatus(member: StoreUserMember, status: Sto
     .single();
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, "store_user_status_changed", member.id, { user_id: member.user_id, from: member.status, to: status });
+  await writeAuditLog(actorUserId, member.store_id, "store_user_status_changed", member.id, { user_id: member.user_id, from: member.status, to: status }, actorRole);
   return { ...(data as StoreUserMember), profile: member.profile };
 }
 
-export async function removeStoreUser(member: StoreUserMember, actorUserId: string) {
+export async function removeStoreUser(member: StoreUserMember, actorUserId: string, actorRole = "master_admin") {
   await assertCanChangeLastStoreAdmin(member, member.role === "store_admin" ? "seller" : member.role);
 
   const { error } = await supabaseAny
@@ -257,7 +273,7 @@ export async function removeStoreUser(member: StoreUserMember, actorUserId: stri
     .eq("store_id", member.store_id);
 
   if (error) throw error;
-  await writeAuditLog(actorUserId, member.store_id, "store_user_removed", member.id, { user_id: member.user_id, role: member.role });
+  await writeAuditLog(actorUserId, member.store_id, "store_user_removed", member.id, { user_id: member.user_id, role: member.role }, actorRole);
 }
 
 export async function resendStoreUserInvite(member: StoreUserMember, actorUserId: string) {

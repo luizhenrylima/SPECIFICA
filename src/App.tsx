@@ -27,6 +27,7 @@ import StoreDetailsPage from "@/pages/master-admin/StoreDetailsPage";
 import StoreFormPage from "@/pages/master-admin/StoreFormPage";
 import StoresPage from "@/pages/master-admin/StoresPage";
 import { MasterAdminLayout } from "@/components/master-admin/MasterAdminLayout";
+import { StoreAdminLayout } from "@/components/store-admin/StoreAdminLayout";
 import NotFound from "@/pages/NotFound";
 import SharedProjectPage from "@/pages/SharedProjectPage";
 import ComparePage from "@/pages/ComparePage";
@@ -38,6 +39,11 @@ import MarketingPage from "@/pages/MarketingPage";
 import PriceConsultantPage from "@/pages/PriceConsultantPage";
 import OperationsPage from "@/pages/OperationsPage";
 import RelationshipPage from "@/pages/RelationshipPage";
+import StoreAdminBrandsPage from "@/pages/store-admin/StoreAdminBrandsPage";
+import StoreAdminDashboardPage from "@/pages/store-admin/StoreAdminDashboardPage";
+import StoreAdminProductsPage from "@/pages/store-admin/StoreAdminProductsPage";
+import StoreAdminSettingsPage from "@/pages/store-admin/StoreAdminSettingsPage";
+import StoreAdminUsersPage from "@/pages/store-admin/StoreAdminUsersPage";
 import { FileClock, Package, Settings, ShieldCheck, Tags, Users } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -182,6 +188,15 @@ function MasterAdminShell({ children }: { children: ReactNode }) {
   );
 }
 
+function StoreAdminShell({ children }: { children: ReactNode }) {
+  return (
+    <RoleRoute area="management">
+      <Navbar />
+      <StoreAdminLayout>{children}</StoreAdminLayout>
+    </RoleRoute>
+  );
+}
+
 function AuthRoute() {
   const { user } = useAuth();
   const location = useLocation();
@@ -208,7 +223,12 @@ function AppRoutes() {
       <Route path="/favorites" element={<ProtectedRoute><Navbar /><FavoritesPage /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Navbar /><ProjectsPage /></ProtectedRoute>} />
       <Route path="/consultor-valores" element={<RoleRoute area="staff"><Navbar /><PriceConsultantPage /></RoleRoute>} />
-      <Route path="/gestao/*" element={<RoleRoute area="management"><Navbar /><OperationsPage /></RoleRoute>} />
+      <Route path="/gestao" element={<StoreAdminShell><StoreAdminDashboardPage /></StoreAdminShell>} />
+      <Route path="/gestao/usuarios" element={<StoreAdminShell><StoreAdminUsersPage /></StoreAdminShell>} />
+      <Route path="/gestao/produtos" element={<StoreAdminShell><StoreAdminProductsPage /></StoreAdminShell>} />
+      <Route path="/gestao/catalogo" element={<Navigate to="/gestao/produtos" replace />} />
+      <Route path="/gestao/marcas" element={<StoreAdminShell><StoreAdminBrandsPage /></StoreAdminShell>} />
+      <Route path="/gestao/configuracoes" element={<StoreAdminShell><StoreAdminSettingsPage /></StoreAdminShell>} />
       <Route path="/rotina/*" element={<RoleRoute area="seller"><Navbar /><OperationsPage /></RoleRoute>} />
       <Route path="/admin" element={<MasterAdminShell><MasterAdminDashboard /></MasterAdminShell>} />
       <Route path="/admin/stores" element={<MasterAdminShell><StoresPage /></MasterAdminShell>} />

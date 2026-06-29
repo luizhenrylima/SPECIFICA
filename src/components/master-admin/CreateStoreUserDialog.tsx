@@ -23,20 +23,24 @@ interface CreateStoreUserDialogProps {
   open: boolean;
   loading: boolean;
   error?: string | null;
+  allowedRoles?: StoreUserRole[];
+  description?: string;
   onClose: () => void;
   onSubmit: (values: StoreUserFormValues) => Promise<void>;
 }
 
-export function CreateStoreUserDialog({ open, loading, error, onClose, onSubmit }: CreateStoreUserDialogProps) {
+export function CreateStoreUserDialog({ open, loading, error, allowedRoles, description, onClose, onSubmit }: CreateStoreUserDialogProps) {
   const [values, setValues] = useState<StoreUserFormValues>(initialValues);
   const [localError, setLocalError] = useState("");
+  const roles = allowedRoles?.length ? STORE_USER_ROLES.filter((role) => allowedRoles.includes(role.value)) : STORE_USER_ROLES;
+  const firstRole = roles[0]?.value ?? "seller";
 
   useEffect(() => {
     if (open) {
-      setValues(initialValues);
+      setValues({ ...initialValues, role: firstRole });
       setLocalError("");
     }
-  }, [open]);
+  }, [firstRole, open]);
 
   if (!open) return null;
 
@@ -61,7 +65,7 @@ export function CreateStoreUserDialog({ open, loading, error, onClose, onSubmit 
         <div className="flex items-start justify-between gap-4 border-b border-neutral-200 p-5">
           <div>
             <h3 className="text-lg font-semibold text-neutral-950">Criar usuario</h3>
-            <p className="mt-1 text-sm text-neutral-500">Cadastre o acesso da loja com e-mail e senha definidos pelo Master Admin.</p>
+            <p className="mt-1 text-sm text-neutral-500">{description ?? "Cadastre o acesso da loja com e-mail e senha definidos pelo Master Admin."}</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100" aria-label="Fechar">
             <X size={16} />
@@ -82,7 +86,7 @@ export function CreateStoreUserDialog({ open, loading, error, onClose, onSubmit 
                 onChange={(event) => setValue("role", event.target.value as StoreUserRole)}
                 className="mt-2 h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm outline-none transition focus:border-neutral-950"
               >
-                {STORE_USER_ROLES.map((role) => (
+                {roles.map((role) => (
                   <option key={role.value} value={role.value}>{role.label}</option>
                 ))}
               </select>

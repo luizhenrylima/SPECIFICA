@@ -7,6 +7,7 @@ import {
   updateStoreUserRole,
   updateStoreUserStatus,
   type StoreUserFormValues,
+  type StoreUserCreator,
   type StoreUserMember,
   type StoreUserRole,
   type StoreUserStatus,
@@ -81,7 +82,7 @@ function useStoreUserMutation(defaultError: string) {
 export function useCreateStoreUser() {
   const mutation = useStoreUserMutation("Nao foi possivel criar o usuario.");
   return {
-    createUser: (storeId: string, values: StoreUserFormValues) => mutation.run(() => createStoreUser(storeId, values)),
+    createUser: (storeId: string, values: StoreUserFormValues, creator: StoreUserCreator = "master") => mutation.run(() => createStoreUser(storeId, values, creator)),
     loading: mutation.loading,
     error: mutation.error,
   };
@@ -90,7 +91,7 @@ export function useCreateStoreUser() {
 export function useUpdateStoreUserRole() {
   const mutation = useStoreUserMutation("Nao foi possivel alterar a role.");
   return {
-    updateRole: (member: StoreUserMember, role: StoreUserRole, actorUserId: string) => mutation.run(() => updateStoreUserRole(member, role, actorUserId)),
+    updateRole: (member: StoreUserMember, role: StoreUserRole, actorUserId: string, actorRole = "master_admin") => mutation.run(() => updateStoreUserRole(member, role, actorUserId, actorRole)),
     loading: mutation.loading,
     error: mutation.error,
   };
@@ -99,7 +100,7 @@ export function useUpdateStoreUserRole() {
 export function useUpdateStoreUserStatus() {
   const mutation = useStoreUserMutation("Nao foi possivel alterar o status.");
   return {
-    updateStatus: (member: StoreUserMember, status: StoreUserStatus, actorUserId: string) => mutation.run(() => updateStoreUserStatus(member, status, actorUserId)),
+    updateStatus: (member: StoreUserMember, status: StoreUserStatus, actorUserId: string, actorRole = "master_admin") => mutation.run(() => updateStoreUserStatus(member, status, actorUserId, actorRole)),
     loading: mutation.loading,
     error: mutation.error,
   };
@@ -108,7 +109,7 @@ export function useUpdateStoreUserStatus() {
 export function useRemoveStoreUser() {
   const mutation = useStoreUserMutation("Nao foi possivel remover o usuario da loja.");
   return {
-    removeUser: (member: StoreUserMember, actorUserId: string) => mutation.run(() => removeStoreUser(member, actorUserId)),
+    removeUser: (member: StoreUserMember, actorUserId: string, actorRole = "master_admin") => mutation.run(() => removeStoreUser(member, actorUserId, actorRole)),
     loading: mutation.loading,
     error: mutation.error,
   };

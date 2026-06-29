@@ -16,6 +16,7 @@ import {
 } from "@/hooks/useStoreUsers";
 import {
   STORE_USER_ROLES,
+  STORE_ADMIN_CREATABLE_ROLES,
   STORE_USER_STATUSES,
   roleLabel,
   type StoreUserFormValues,
@@ -24,7 +25,7 @@ import {
   type StoreUserStatus,
 } from "@/services/storeUsersService";
 
-export function StoreUsersManager({ storeId }: { storeId: string }) {
+export function StoreUsersManager({ storeId, scope = "master" }: { storeId: string; scope?: "master" | "store" }) {
   const { user } = useAuth();
   const { users, filteredUsers, loading, error, search, setSearch, role, setRole, status, setStatus, reload } = useStoreUsers(storeId);
   const createMutation = useCreateStoreUser();
@@ -34,6 +35,11 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
   const inviteMutation = useResendStoreUserInvite();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<StoreUserMember | null>(null);
+
+  const availableRoles = useMemo(
+    () => scope === "store" ? STORE_USER_ROLES.filter((item) => STORE_ADMIN_CREATABLE_ROLES.includes(item.value)) : STORE_USER_ROLES,
+    [scope]
+  );
 
   const summary = useMemo(() => ({
     total: users.length,
@@ -48,7 +54,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
   const handleCreate = async (values: StoreUserFormValues) => {
     if (!user) return;
     try {
-      await createMutation.createUser(storeId, values);
+      await createMutation.createUser(storeId, values, scope === "store" ? "store_admin" : "master");
       await reload();
       setCreateOpen(false);
       toast({ title: "Usuario criado com sucesso", description: "Ele ja pode acessar a loja com o e-mail e senha cadastrados." });
@@ -60,7 +66,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
   const changeRole = async (member: StoreUserMember, nextRole: StoreUserRole) => {
     if (!user || nextRole === member.role) return;
     try {
-      await roleMutation.updateRole(member, nextRole, user.id);
+      await roleMutation.updateRole(member, nextRole, user.id, scope === "store" ? "store_admin" : "master_admin");
       await reload();
       toast({ title: "Role atualizada", description: `${member.profile?.full_name ?? member.profile?.email ?? "Usuario"} agora e ${roleLabel(nextRole)}.` });
     } catch (err: any) {
@@ -71,7 +77,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
   const changeStatus = async (member: StoreUserMember, nextStatus: StoreUserStatus) => {
     if (!user || nextStatus === member.status) return;
     try {
-      await statusMutation.updateStatus(member, nextStatus, user.id);
+      await statusMutation.updateStatus(member, nextStatus, user.id, scope === "store" ? "store_admin" : "master_admin");
       await reload();
       toast({ title: "Status atualizado" });
     } catch (err: any) {
@@ -84,7 +90,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
     const label = member.profile?.full_name ?? member.profile?.email ?? "este usuario";
     if (!window.confirm(`Remover ${label} desta loja?`)) return;
     try {
-      await removeMutation.removeUser(member, user.id);
+      await removeMutation.removeUser(member, user.id, scope === "store" ? "store_admin" : "master_admin");
       await reload();
       toast({ title: "Usuario removido da loja" });
     } catch (err: any) {
@@ -110,7 +116,11 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h3 className="text-2xl font-semibold tracking-normal text-neutral-950">Usuarios da loja</h3>
-          <p className="mt-2 text-sm text-neutral-500">Gerencie admins, gerentes, vendedores, financeiro e arquitetos desta loja.</p>
+          <p className="mt-2 text-sm text-neutral-500">
+            {scope === "store"
+              ? "Gerencie gerentes, vendedores, financeiro e arquitetos da sua loja."
+              : "Gerencie admins, gerentes, vendedores, financeiro e arquitetos desta loja."}
+          </p>
         </div>
         <button
           type="button"
@@ -149,7 +159,7 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
           aria-label="Filtrar por role"
         >
           <option value="all">Todas as roles</option>
-          {STORE_USER_ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          {availableRoles.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
         <select
           value={status}
@@ -196,12 +206,14 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
                         <StoreUserRoleBadge role={member.role} />
                         <select
                           value={member.role}
-                          disabled={busy}
+                          disabled={busy || (scope === "store" && member.role === "store_admin")}
                           onChange={(event) => void changeRole(member, event.target.value as StoreUserRole)}
                           className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-xs outline-none transition focus:border-neutral-950"
                           aria-label={`Alterar role de ${member.profile?.full_name ?? member.profile?.email ?? "usuario"}`}
                         >
-                          {STORE_USER_ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                          {member.role === "store_admin" && scope === "store"
+                            ? <option value="store_admin">Admin da loja</option>
+                            : availableRoles.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                         </select>
                       </div>
                     </td>
@@ -213,13 +225,13 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
                         <button type="button" onClick={() => setSelectedUser(member)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" title="Ver detalhes" aria-label="Ver detalhes">
                           <Eye size={15} />
                         </button>
-                        <button type="button" disabled={busy} onClick={() => void changeStatus(member, member.status === "active" ? "inactive" : "active")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" title={member.status === "active" ? "Inativar" : "Ativar"} aria-label={member.status === "active" ? "Inativar usuario" : "Ativar usuario"}>
+                        <button type="button" disabled={busy || (scope === "store" && member.role === "store_admin")} onClick={() => void changeStatus(member, member.status === "active" ? "inactive" : "active")} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950 disabled:opacity-40" title={member.status === "active" ? "Inativar" : "Ativar"} aria-label={member.status === "active" ? "Inativar usuario" : "Ativar usuario"}>
                           <RotateCcw size={15} />
                         </button>
                         <button type="button" disabled={busy} onClick={() => void resendInvite(member)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950" title="Reenviar convite" aria-label="Reenviar convite">
                           <MailPlus size={15} />
                         </button>
-                        <button type="button" disabled={busy} onClick={() => void removeMember(member)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50" title="Remover da loja" aria-label="Remover da loja">
+                        <button type="button" disabled={busy || (scope === "store" && member.role === "store_admin")} onClick={() => void removeMember(member)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50 disabled:opacity-40" title="Remover da loja" aria-label="Remover da loja">
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -232,7 +244,15 @@ export function StoreUsersManager({ storeId }: { storeId: string }) {
         )}
       </section>
 
-      <CreateStoreUserDialog open={createOpen} loading={createMutation.loading} error={createMutation.error} onClose={() => setCreateOpen(false)} onSubmit={handleCreate} />
+      <CreateStoreUserDialog
+        open={createOpen}
+        loading={createMutation.loading}
+        error={createMutation.error}
+        allowedRoles={scope === "store" ? STORE_ADMIN_CREATABLE_ROLES : undefined}
+        description={scope === "store" ? "Cadastre usuarios operacionais da sua loja. O Master Admin cria admins principais." : undefined}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={handleCreate}
+      />
       {selectedUser && <UserDetailsDialog member={selectedUser} onClose={() => setSelectedUser(null)} />}
     </div>
   );
