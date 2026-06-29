@@ -106,7 +106,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "management" | "seller" | "staff" }) {
-  const { user, loading, isAdmin, isManager, isSeller, isStaff } = useAuth();
+  const { user, loading, isAdmin, isMasterAdmin, isManager, isSeller, isStaff } = useAuth();
   const {
     currentRole,
     isSuperAdmin,
@@ -114,8 +114,9 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
     isManager: isStoreManager,
     isSeller: isStoreSeller,
   } = useStore();
-  const canAdminPlatform = isAdmin || isSuperAdmin;
-  const canManageStore = canAdminPlatform || isStoreAdmin || isManager || isStoreManager;
+  const canAdminPlatform = isMasterAdmin;
+  const canManageLegacyAdminAreas = isAdmin || isSuperAdmin;
+  const canManageStore = canAdminPlatform || canManageLegacyAdminAreas || isStoreAdmin || isManager || isStoreManager;
   const canUseSellerArea = canManageStore || isSeller || isStoreSeller;
   const canUseStaffArea = isStaff || canManageStore || currentRole === "finance";
 
@@ -148,6 +149,22 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   return <Navigate to="/catalog" replace />;
 }
 
+function MasterAdminRoute({ children }: { children: ReactNode }) {
+  const { user, loading, isMasterAdmin, isManager, isSeller } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-6 h-6 border border-foreground/20 border-t-foreground/60 rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/auth" replace />;
+  if (isMasterAdmin) return <>{children}</>;
+  if (isManager) return <Navigate to="/gestao" replace />;
+  if (isSeller) return <Navigate to="/rotina" replace />;
+  return <Navigate to="/catalog" replace />;
+}
+
 function AuthRoute() {
   const { user } = useAuth();
   const location = useLocation();
@@ -176,7 +193,7 @@ function AppRoutes() {
       <Route path="/consultor-valores" element={<RoleRoute area="staff"><Navbar /><PriceConsultantPage /></RoleRoute>} />
       <Route path="/gestao/*" element={<RoleRoute area="management"><Navbar /><OperationsPage /></RoleRoute>} />
       <Route path="/rotina/*" element={<RoleRoute area="seller"><Navbar /><OperationsPage /></RoleRoute>} />
-      <Route path="/admin" element={<RoleRoute area="admin"><Navbar /><AdminPage /></RoleRoute>} />
+      <Route path="/admin" element={<MasterAdminRoute><Navbar /><AdminPage /></MasterAdminRoute>} />
       <Route path="/admin/precos" element={<Navigate to="/consultor-valores" replace />} />
       <Route path="/compare" element={<ProtectedRoute><Navbar /><ComparePage /></ProtectedRoute>} />
       <Route path="/admin/analytics" element={<RoleRoute area="management"><Navbar /><AdminAnalyticsPage /></RoleRoute>} />

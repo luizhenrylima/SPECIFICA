@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import type { AuthError, Session, User } from '@supabase/supabase-js';
 
 type AuthResult = { error: AuthError | { message: string } | null };
-type AccessStatus = { admin: boolean; manager: boolean; seller: boolean; architect: boolean; approved: boolean };
+type AccessStatus = { masterAdmin: boolean; admin: boolean; manager: boolean; seller: boolean; architect: boolean; approved: boolean };
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isMasterAdmin: boolean;
   isManager: boolean;
   isSeller: boolean;
   isArchitect: boolean;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
   const [isManager, setIsManager] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
   const [isArchitect, setIsArchitect] = useState(false);
@@ -71,8 +73,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const checkMasterAdmin = async (): Promise<boolean> => {
+    try {
+      const { data } = await (supabase.rpc as any)('is_master_admin');
+      return !!data;
+    } catch {
+      return false;
+    }
+  };
+
   const getAccessStatus = async (userId: string): Promise<AccessStatus> => {
-    const [admin, manager, seller, architect, approved] = await Promise.all([
+    const [masterAdmin, admin, manager, seller, architect, approved] = await Promise.all([
+      checkMasterAdmin(),
       checkRole(userId, 'admin'),
       checkRole(userId, 'gestor'),
       checkRole(userId, 'vendedor'),
@@ -80,12 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       checkApproval(userId),
     ]);
 
-    return { admin, manager, seller, architect, approved };
+    return { masterAdmin, admin, manager, seller, architect, approved };
   };
 
   const clearAuthState = (approved: boolean | null = null) => {
     setSession(null);
     setUser(null);
+    setIsMasterAdmin(false);
     setIsAdmin(false);
     setIsManager(false);
     setIsSeller(false);
@@ -104,11 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const { admin, manager, seller, architect, approved } = await getAccessStatus(nextSession.user.id);
+      const { masterAdmin, admin, manager, seller, architect, approved } = await getAccessStatus(nextSession.user.id);
 
       if (requestId !== authRequestId.current) return;
 
-      if (!admin && !approved) {
+      if (!masterAdmin && !admin && !approved) {
         clearAuthState(false);
         setLoading(false);
         await supabase.auth.signOut();
@@ -117,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(nextSession);
       setUser(nextSession.user);
+      setIsMasterAdmin(masterAdmin);
       setIsAdmin(admin);
       setIsManager(manager);
       setIsSeller(seller);
@@ -194,9 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (!result.error && result.data?.user) {
-        const { admin, approved } = await getAccessStatus(result.data.user.id);
+        const { masterAdmin, admin, approved } = await getAccessStatus(result.data.user.id);
 
-        if (!admin && !approved) {
+        if (!masterAdmin && !admin && !approved) {
           clearAuthState(false);
           await supabase.auth.signOut();
           return {
@@ -229,10 +243,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const isStaff = isAdmin || isManager || isSeller;
+  const isStaff = isAdmin || isManager || isSeller || isMasterAdmin;
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, isManager, isSeller, isArchitect, isStaff, isApproved, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isAdmin, isMasterAdmin, isManager, isSeller, isArchitect, isStaff, isApproved, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

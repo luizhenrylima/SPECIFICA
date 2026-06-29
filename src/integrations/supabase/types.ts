@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -1453,6 +1453,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_users: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       plans: {
         Row: {
@@ -3111,7 +3138,12 @@ export type Database = {
         Returns: Json
       }
       current_tenant_id: { Args: never; Returns: string }
+      current_user_has_store_access: {
+        Args: { target_store_id: string }
+        Returns: boolean
+      }
       current_user_id: { Args: never; Returns: string }
+      current_user_role: { Args: { target_store_id: string }; Returns: string }
       current_user_store_ids: { Args: never; Returns: string[] }
       get_shared_project_by_token: { Args: { _token: string }; Returns: string }
       has_role: {
@@ -3125,6 +3157,11 @@ export type Database = {
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       is_architect: { Args: { _user_id: string }; Returns: boolean }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_master_admin: { Args: never; Returns: boolean }
+      is_master_admin_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       is_seller: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }

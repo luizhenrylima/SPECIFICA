@@ -276,7 +276,7 @@ async function getFunctionErrorMessage(error: any, fallback: string) {
 }
 
 export default function AdminPage() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isMasterAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -452,7 +452,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!isAdmin) { navigate('/'); return; }
+    if (!isMasterAdmin) { navigate('/catalog'); return; }
     const fetchAll = async () => {
       const [b, p, c, bc, d, li, st, pst, fp, envs, pe, pcs, cc, ccp, profiles, roles, fCats, fItems, pfc, pd] = await Promise.all([
         supabase.from('brands').select(ADMIN_BRAND_FIELDS).order('name'),
@@ -498,7 +498,7 @@ export default function AdminPage() {
       setProductFinishCategories((pfc.data as ProductFinishCategory[]) || []);
     };
     fetchAll();
-  }, [isAdmin, loading, navigate]);
+  }, [isMasterAdmin, loading, navigate]);
 
   const refreshCatalogData = async () => {
     const [b, p, c, pst, envs, pe, pcs, cc, ccp] = await Promise.all([
@@ -1479,7 +1479,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!isAdmin) return null;
+  if (!isMasterAdmin) return null;
 
   const featuredProductIds = new Set(featuredProducts.map(fp => fp.product_id));
 

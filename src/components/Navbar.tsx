@@ -45,7 +45,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function Navbar() {
-  const { user, isAdmin, isManager, isSeller, isArchitect, isStaff, signOut } = useAuth();
+  const { user, isAdmin, isMasterAdmin, isManager, isSeller, isArchitect, isStaff, signOut } = useAuth();
   const {
     stores,
     currentStore,
@@ -146,8 +146,8 @@ export default function Navbar() {
   const navTextClass = "shrink-0 text-[10px] uppercase tracking-[0.15em] transition-colors link-underline";
   const navIconTextClass = `flex shrink-0 items-center gap-1.5 ${navTextClass}`;
   const roleLabel = isSuperAdmin ? roleLabels.super_admin : currentRole ? roleLabels[currentRole] ?? currentRole : "sem papel";
-  const canManagePlatform = isAdmin || isSuperAdmin;
-  const canManageStore = canManagePlatform || isStoreAdmin || isManager || isStoreManager;
+  const canManagePlatform = isMasterAdmin;
+  const canManageStore = canManagePlatform || isAdmin || isSuperAdmin || isStoreAdmin || isManager || isStoreManager;
   const canUseRoutine = canManageStore || isSeller || isStoreSeller;
   const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
   const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;
