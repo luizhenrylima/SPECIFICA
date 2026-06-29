@@ -45,7 +45,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function Navbar() {
-  const { user, isAdmin, isManager, isSeller, isStaff, signOut } = useAuth();
+  const { user, isAdmin, isManager, isSeller, isArchitect, isStaff, signOut } = useAuth();
   const {
     stores,
     currentStore,
