@@ -4,6 +4,7 @@ import { ArrowLeft, Edit3, PackageCheck, RotateCcw, ShieldOff, Tags, UserRound, 
 import { AdminMetricCard } from "@/components/master-admin/AdminMetricCard";
 import { StorePlanBadge } from "@/components/master-admin/StorePlanBadge";
 import { StoreStatusBadge } from "@/components/master-admin/StoreStatusBadge";
+import { StoreUsersManager } from "@/components/master-admin/StoreUsersManager";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/hooks/useStore";
 import { useUpdateStore } from "@/hooks/useStoreMutations";
@@ -119,7 +120,7 @@ export default function StoreDetailsPage() {
         </section>
       )}
 
-      {activeTab === "Usuarios" && <Prepared text="Gestao de usuarios por loja sera implementada na proxima fase." />}
+      {activeTab === "Usuarios" && <StoreUsersManager storeId={store.id} />}
       {activeTab === "Produtos liberados" && <Prepared text="Liberacao de produtos por loja sera implementada na proxima fase." />}
       {activeTab === "Marcas liberadas" && <Prepared text="Liberacao de marcas por loja sera implementada na proxima fase." />}
       {activeTab === "Auditoria" && <Prepared text="Auditoria detalhada sera implementada em fase futura." />}

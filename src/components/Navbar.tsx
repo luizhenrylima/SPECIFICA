@@ -41,6 +41,7 @@ const roleLabels: Record<string, string> = {
   seller: "seller",
   architect: "architect",
   finance: "finance",
+  financial: "finance",
   viewer: "viewer",
 };
 
@@ -151,7 +152,7 @@ export default function Navbar() {
   const canUseRoutine = canManageStore || isSeller || isStoreSeller;
   const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
   const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;
-  const canUsePriceTools = isStaff || canManageStore || currentRole === "finance";
+  const canUsePriceTools = isStaff || canManageStore || currentRole === "finance" || currentRole === "financial";
 
   return (
     <>

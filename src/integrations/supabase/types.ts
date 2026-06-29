@@ -3156,13 +3156,25 @@ export type Database = {
         Returns: Json
       }
       current_tenant_id: { Args: never; Returns: string }
+      current_user_can_manage_store_users: {
+        Args: { target_store_id: string }
+        Returns: boolean
+      }
       current_user_has_store_access: {
         Args: { target_store_id: string }
         Returns: boolean
       }
       current_user_id: { Args: never; Returns: string }
+      current_user_is_store_admin: {
+        Args: { target_store_id: string }
+        Returns: boolean
+      }
       current_user_role: { Args: { target_store_id: string }; Returns: string }
       current_user_store_ids: { Args: never; Returns: string[] }
+      current_user_store_role: {
+        Args: { target_store_id: string }
+        Returns: string
+      }
       get_shared_project_by_token: { Args: { _token: string }; Returns: string }
       has_role: {
         Args: {

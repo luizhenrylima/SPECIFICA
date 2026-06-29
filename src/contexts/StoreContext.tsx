@@ -5,9 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 const CURRENT_STORE_STORAGE_KEY = "specifica.currentStoreId";
 const DEFAULT_STORE_SLUG = "especifica-principal";
 
-export type StoreRole = "store_admin" | "manager" | "seller" | "architect";
+export type StoreRole = "store_admin" | "manager" | "seller" | "financial" | "architect";
 type DatabaseStoreRole = StoreRole | "finance" | "viewer";
-type StoreMemberStatus = "active" | "inactive" | "invited" | "suspended";
+type StoreMemberStatus = "active" | "inactive" | "invited" | "pending" | "suspended";
 type StoreStatus = "active" | "inactive" | "trial" | "suspended" | "pending_setup" | "cancelled";
 type GlobalRole = "super_admin" | "user";
 
@@ -73,6 +73,7 @@ function saveStoreId(storeId: string | null) {
 
 function normalizeStoreRole(role: DatabaseStoreRole | null): DatabaseStoreRole | null {
   if (!role) return null;
+  if (role === "finance") return "financial";
   return role;
 }
 
