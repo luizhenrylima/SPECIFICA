@@ -69,10 +69,10 @@ export default function StoreAdminDashboardPage() {
       ) : null}
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <QuickAction to="/gestao/usuarios" icon={Users} label="Cadastrar usuario" />
-        <QuickAction to="/gestao/produtos" icon={Plus} label="Cadastrar produto" />
-        <QuickAction to="/gestao/marcas" icon={Tags} label="Cadastrar marca" />
-        <QuickAction to="/gestao/configuracoes" icon={Palette} label="Configurar loja" />
+        <QuickAction to="/admin-loja/usuarios" icon={Users} label="Cadastrar usuario" />
+        <QuickAction to="/admin-loja/produtos" icon={Plus} label="Cadastrar produto" />
+        <QuickAction to="/admin-loja/marcas" icon={Tags} label="Cadastrar marca" />
+        <QuickAction to="/admin-loja/configuracoes" icon={Palette} label="Configurar loja" />
       </section>
     </div>
   );

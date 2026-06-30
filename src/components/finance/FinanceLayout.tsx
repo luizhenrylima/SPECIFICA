@@ -1,16 +1,18 @@
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, Boxes, Building2, Palette, Tags, Users } from "lucide-react";
+import { BarChart3, Banknote, Coins, FileText, Landmark, Receipt, ScrollText, WalletCards } from "lucide-react";
 import { useStore } from "@/contexts/StoreContext";
 
 const links = [
-  { to: "/admin-loja", label: "Visao geral", icon: BarChart3, end: true },
-  { to: "/admin-loja/usuarios", label: "Usuarios", icon: Users },
-  { to: "/admin-loja/produtos", label: "Produtos", icon: Boxes },
-  { to: "/admin-loja/marcas", label: "Marcas", icon: Tags },
-  { to: "/admin-loja/configuracoes", label: "Configuracoes", icon: Palette },
+  { to: "/financeiro", label: "Dashboard", icon: BarChart3, end: true },
+  { to: "/financeiro/vendas", label: "Vendas", icon: Receipt },
+  { to: "/financeiro/receber", label: "Receber", icon: WalletCards },
+  { to: "/financeiro/despesas", label: "Despesas", icon: Banknote },
+  { to: "/financeiro/rt", label: "RT arquitetos", icon: Landmark },
+  { to: "/financeiro/comissoes", label: "Comissoes", icon: Coins },
+  { to: "/financeiro/relatorios", label: "Relatorios", icon: FileText },
 ];
 
-export function StoreAdminLayout({ children }: { children: React.ReactNode }) {
+export function FinanceLayout({ children }: { children: React.ReactNode }) {
   const { currentStore } = useStore();
   const storeName = currentStore?.display_name?.trim() || currentStore?.name || "Loja";
 
@@ -19,13 +21,13 @@ export function StoreAdminLayout({ children }: { children: React.ReactNode }) {
       <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="border-b border-neutral-200 bg-white lg:border-b-0 lg:border-r">
           <div className="p-5">
-            <Link to="/admin-loja" className="flex items-center gap-3">
+            <Link to="/financeiro" className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-neutral-950 text-white">
-                <Building2 size={18} />
+                <ScrollText size={18} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">{storeName}</span>
-                <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-500">Admin da loja</span>
+                <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-500">Financeiro</span>
               </span>
             </Link>
           </div>

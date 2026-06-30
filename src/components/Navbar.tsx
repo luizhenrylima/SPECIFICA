@@ -16,6 +16,7 @@ import {
   Pencil,
   Settings,
   User,
+  WalletCards,
 } from "lucide-react";
 import logoSpecifica from "@/assets/logo-specifica.png";
 
@@ -152,6 +153,8 @@ export default function Navbar() {
   const canManagePlatform = isMasterAdmin;
   const canManageStore = canManagePlatform || isAdmin || isSuperAdmin || isStoreAdmin || isManager || isStoreManager;
   const canUseRoutine = canManageStore || isSeller || isStoreSeller;
+  const canUseManagement = canManageStore || isSeller || isStoreSeller;
+  const canUseFinance = canManageStore || currentRole === "finance" || currentRole === "financial";
   const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
   const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;
   const canUsePriceTools = isStaff || canManageStore || currentRole === "finance" || currentRole === "financial";
@@ -223,10 +226,24 @@ export default function Navbar() {
             </Link>
           )}
 
-          {canUseRoutine && (
-            <Link to={isSeller || isStoreSeller ? "/rotina" : "/gestao"} className={navIconTextClass} title={isSeller || isStoreSeller ? "Rotina" : "Gestao"}>
+          {canUseManagement && (
+            <Link to="/gestao" className={navIconTextClass} title="Gestao">
               <BriefcaseBusiness size={14} />
-              {isSeller || isStoreSeller ? "Rotina" : <>Gest&atilde;o</>}
+              Gest&atilde;o
+            </Link>
+          )}
+
+          {canUseRoutine && (
+            <Link to="/rotina" className={navIconTextClass} title="Rotina">
+              <Pencil size={14} />
+              Rotina
+            </Link>
+          )}
+
+          {canUseFinance && (
+            <Link to="/financeiro" className={navIconTextClass} title="Financeiro">
+              <WalletCards size={14} />
+              Financeiro
             </Link>
           )}
 
@@ -235,16 +252,16 @@ export default function Navbar() {
           </Link>
 
           {canManageStore && (
-            <Link to="/admin/analytics" className={navIconTextClass} title="Performance & Curadoria">
-              <BarChart3 size={14} />
-              Performance
+            <Link to="/admin-loja" className={navIconTextClass} title="Admin da loja">
+              <Settings size={14} />
+              Admin
             </Link>
           )}
 
           {canManagePlatform && (
             <Link to="/admin" className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] text-accent transition-colors hover:text-accent/80">
-              <Settings size={14} />
-              Admin
+              <BarChart3 size={14} />
+              Admin Master
             </Link>
           )}
 

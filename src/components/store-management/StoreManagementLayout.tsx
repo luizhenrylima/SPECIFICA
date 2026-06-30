@@ -1,16 +1,16 @@
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, Boxes, Building2, Palette, Tags, Users } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, ClipboardList, FileText, Gauge, Users } from "lucide-react";
 import { useStore } from "@/contexts/StoreContext";
 
 const links = [
-  { to: "/admin-loja", label: "Visao geral", icon: BarChart3, end: true },
-  { to: "/admin-loja/usuarios", label: "Usuarios", icon: Users },
-  { to: "/admin-loja/produtos", label: "Produtos", icon: Boxes },
-  { to: "/admin-loja/marcas", label: "Marcas", icon: Tags },
-  { to: "/admin-loja/configuracoes", label: "Configuracoes", icon: Palette },
+  { to: "/gestao", label: "CRM", icon: BriefcaseBusiness, end: true },
+  { to: "/gestao/clientes", label: "Clientes", icon: Users },
+  { to: "/gestao/projetos", label: "Projetos", icon: ClipboardList },
+  { to: "/gestao/cotacoes", label: "Cotacoes", icon: FileText },
+  { to: "/gestao/performance", label: "Performance", icon: BarChart3 },
 ];
 
-export function StoreAdminLayout({ children }: { children: React.ReactNode }) {
+export function StoreManagementLayout({ children }: { children: React.ReactNode }) {
   const { currentStore } = useStore();
   const storeName = currentStore?.display_name?.trim() || currentStore?.name || "Loja";
 
@@ -19,13 +19,13 @@ export function StoreAdminLayout({ children }: { children: React.ReactNode }) {
       <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="border-b border-neutral-200 bg-white lg:border-b-0 lg:border-r">
           <div className="p-5">
-            <Link to="/admin-loja" className="flex items-center gap-3">
+            <Link to="/gestao" className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-md bg-neutral-950 text-white">
-                <Building2 size={18} />
+                <Gauge size={18} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">{storeName}</span>
-                <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-500">Admin da loja</span>
+                <span className="block text-[10px] uppercase tracking-[0.16em] text-neutral-500">Gestao CRM</span>
               </span>
             </Link>
           </div>

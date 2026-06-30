@@ -24,9 +24,9 @@ async function resolvePostLoginPath() {
     .order('created_at', { ascending: true });
 
   const role = memberships?.[0]?.role;
-  if (role === 'store_admin' || role === 'manager') return '/gestao';
+  if (role === 'store_admin' || role === 'manager') return '/admin-loja';
   if (role === 'seller') return '/rotina';
-  if (role === 'financial' || role === 'finance') return '/consultor-valores';
+  if (role === 'financial' || role === 'finance') return '/financeiro';
   return '/catalog';
 }
 

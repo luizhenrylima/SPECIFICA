@@ -27,7 +27,9 @@ import StoreDetailsPage from "@/pages/master-admin/StoreDetailsPage";
 import StoreFormPage from "@/pages/master-admin/StoreFormPage";
 import StoresPage from "@/pages/master-admin/StoresPage";
 import { MasterAdminLayout } from "@/components/master-admin/MasterAdminLayout";
+import { FinanceLayout } from "@/components/finance/FinanceLayout";
 import { StoreAdminLayout } from "@/components/store-admin/StoreAdminLayout";
+import { StoreManagementLayout } from "@/components/store-management/StoreManagementLayout";
 import NotFound from "@/pages/NotFound";
 import SharedProjectPage from "@/pages/SharedProjectPage";
 import ComparePage from "@/pages/ComparePage";
@@ -46,6 +48,15 @@ import StoreAdminQuotesPage from "@/pages/store-admin/StoreAdminQuotesPage";
 import StoreAdminPerformancePage from "@/pages/store-admin/StoreAdminPerformancePage";
 import StoreAdminSettingsPage from "@/pages/store-admin/StoreAdminSettingsPage";
 import StoreAdminUsersPage from "@/pages/store-admin/StoreAdminUsersPage";
+import {
+  FinanceCommissionsPage,
+  FinanceDashboardPage,
+  FinanceExpensesPage,
+  FinanceReceivablesPage,
+  FinanceReportsPage,
+  FinanceRtPage,
+  FinanceSalesPage,
+} from "@/pages/finance/FinancePages";
 import { FileClock, Package, Settings, ShieldCheck, Tags, Users } from "lucide-react";
 
 const queryClient = new QueryClient({
@@ -121,7 +132,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "management" | "seller" | "staff" }) {
+function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "management" | "seller" | "staff" | "financial" }) {
   const { user, loading, isAdmin, isMasterAdmin, isManager, isSeller, isStaff } = useAuth();
   const {
     currentRole,
@@ -136,6 +147,7 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   const canManageStore = canAdminPlatform || canManageLegacyAdminAreas || isStoreAdmin || isManager || isStoreManager;
   const canUseSellerArea = canManageStore || isSeller || isStoreSeller;
   const canUseStaffArea = isStaff || canManageStore || currentRole === "finance" || currentRole === "financial";
+  const canUseFinancialArea = canManageStore || currentRole === "finance" || currentRole === "financial";
 
   if (loading || storeLoading) {
     return (
@@ -158,6 +170,11 @@ function RoleRoute({ children, area }: { children: ReactNode; area: "admin" | "m
   }
   if (area === "staff") {
     if (canUseStaffArea) return <>{children}</>;
+    return <Navigate to="/catalog" replace />;
+  }
+  if (area === "financial") {
+    if (canUseFinancialArea) return <>{children}</>;
+    if (canUseSellerArea) return <Navigate to="/gestao" replace />;
     return <Navigate to="/catalog" replace />;
   }
   if (canUseSellerArea) return <>{children}</>;
@@ -199,6 +216,24 @@ function StoreAdminShell({ children }: { children: ReactNode }) {
   );
 }
 
+function StoreManagementShell({ children }: { children: ReactNode }) {
+  return (
+    <RoleRoute area="seller">
+      <Navbar />
+      <StoreManagementLayout>{children}</StoreManagementLayout>
+    </RoleRoute>
+  );
+}
+
+function FinanceShell({ children }: { children: ReactNode }) {
+  return (
+    <RoleRoute area="financial">
+      <Navbar />
+      <FinanceLayout>{children}</FinanceLayout>
+    </RoleRoute>
+  );
+}
+
 function AuthRoute() {
   const { user } = useAuth();
   const location = useLocation();
@@ -225,14 +260,32 @@ function AppRoutes() {
       <Route path="/favorites" element={<ProtectedRoute><Navbar /><FavoritesPage /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><Navbar /><ProjectsPage /></ProtectedRoute>} />
       <Route path="/consultor-valores" element={<RoleRoute area="staff"><Navbar /><PriceConsultantPage /></RoleRoute>} />
-      <Route path="/gestao" element={<StoreAdminShell><StoreAdminDashboardPage /></StoreAdminShell>} />
-      <Route path="/gestao/usuarios" element={<StoreAdminShell><StoreAdminUsersPage /></StoreAdminShell>} />
-      <Route path="/gestao/produtos" element={<StoreAdminShell><StoreAdminProductsPage /></StoreAdminShell>} />
-      <Route path="/gestao/catalogo" element={<Navigate to="/gestao/produtos" replace />} />
-      <Route path="/gestao/marcas" element={<StoreAdminShell><StoreAdminBrandsPage /></StoreAdminShell>} />
-      <Route path="/gestao/cotacoes" element={<StoreAdminShell><StoreAdminQuotesPage /></StoreAdminShell>} />
-      <Route path="/gestao/performance" element={<StoreAdminShell><StoreAdminPerformancePage /></StoreAdminShell>} />
-      <Route path="/gestao/configuracoes" element={<StoreAdminShell><StoreAdminSettingsPage /></StoreAdminShell>} />
+      <Route path="/gestao" element={<StoreManagementShell><OperationsPage /></StoreManagementShell>} />
+      <Route path="/gestao/clientes" element={<StoreManagementShell><OperationsPage /></StoreManagementShell>} />
+      <Route path="/gestao/projetos" element={<StoreManagementShell><OperationsPage /></StoreManagementShell>} />
+      <Route path="/gestao/funil" element={<StoreManagementShell><OperationsPage /></StoreManagementShell>} />
+      <Route path="/gestao/pedidos" element={<StoreManagementShell><OperationsPage /></StoreManagementShell>} />
+      <Route path="/gestao/cotacoes" element={<StoreManagementShell><StoreAdminQuotesPage /></StoreManagementShell>} />
+      <Route path="/gestao/performance" element={<StoreManagementShell><StoreAdminPerformancePage /></StoreManagementShell>} />
+      <Route path="/gestao/usuarios" element={<Navigate to="/admin-loja/usuarios" replace />} />
+      <Route path="/gestao/produtos" element={<Navigate to="/admin-loja/produtos" replace />} />
+      <Route path="/gestao/catalogo" element={<Navigate to="/admin-loja/produtos" replace />} />
+      <Route path="/gestao/marcas" element={<Navigate to="/admin-loja/marcas" replace />} />
+      <Route path="/gestao/configuracoes" element={<Navigate to="/admin-loja/configuracoes" replace />} />
+      <Route path="/admin-loja" element={<StoreAdminShell><StoreAdminDashboardPage /></StoreAdminShell>} />
+      <Route path="/admin-loja/usuarios" element={<StoreAdminShell><StoreAdminUsersPage /></StoreAdminShell>} />
+      <Route path="/admin-loja/produtos" element={<StoreAdminShell><StoreAdminProductsPage /></StoreAdminShell>} />
+      <Route path="/admin-loja/catalogo" element={<Navigate to="/admin-loja/produtos" replace />} />
+      <Route path="/admin-loja/marcas" element={<StoreAdminShell><StoreAdminBrandsPage /></StoreAdminShell>} />
+      <Route path="/admin-loja/configuracoes" element={<StoreAdminShell><StoreAdminSettingsPage /></StoreAdminShell>} />
+      <Route path="/financeiro" element={<FinanceShell><FinanceDashboardPage /></FinanceShell>} />
+      <Route path="/financeiro/vendas" element={<FinanceShell><FinanceSalesPage /></FinanceShell>} />
+      <Route path="/financeiro/pedidos" element={<Navigate to="/financeiro/vendas" replace />} />
+      <Route path="/financeiro/receber" element={<FinanceShell><FinanceReceivablesPage /></FinanceShell>} />
+      <Route path="/financeiro/despesas" element={<FinanceShell><FinanceExpensesPage /></FinanceShell>} />
+      <Route path="/financeiro/rt" element={<FinanceShell><FinanceRtPage /></FinanceShell>} />
+      <Route path="/financeiro/comissoes" element={<FinanceShell><FinanceCommissionsPage /></FinanceShell>} />
+      <Route path="/financeiro/relatorios" element={<FinanceShell><FinanceReportsPage /></FinanceShell>} />
       <Route path="/rotina/*" element={<RoleRoute area="seller"><Navbar /><OperationsPage /></RoleRoute>} />
       <Route path="/admin" element={<MasterAdminShell><MasterAdminDashboard /></MasterAdminShell>} />
       <Route path="/admin/stores" element={<MasterAdminShell><StoresPage /></MasterAdminShell>} />
