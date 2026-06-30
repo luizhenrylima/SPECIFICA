@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  grantAllBrandsAndProducts,
+  grantBrandAccessWithProducts,
   listStoreCatalogAccess,
   setAllStoreBrandsReleased,
   setAllStoreProductsReleased,
@@ -73,6 +75,57 @@ export function StoreCatalogAccessManager({ storeId, mode }: { storeId: string; 
     }
   };
 
+  const runWithMessage = async (action: () => Promise<string>) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const title = await action();
+      await reload();
+      toast({ title });
+    } catch (error: any) {
+      toast({ title: "Erro ao salvar liberacao", description: error?.message ?? "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const releaseBrand = async (brand: StoreCatalogAccessBrand) => {
+    if (!user) return;
+    const missingProducts = Math.max(0, brand.products_count - brand.released_products_count);
+    const shouldReleaseProducts = !brand.released && missingProducts > 0
+      ? window.confirm(`Liberar tambem ${missingProducts} produto(s) ativo(s) desta marca para a loja?`)
+      : false;
+
+    if (shouldReleaseProducts) {
+      await runWithMessage(async () => {
+        const count = await grantBrandAccessWithProducts(storeId, brand.id, user.id);
+        return `Marca liberada e ${count} produto(s) foram liberados para esta loja.`;
+      });
+      return;
+    }
+
+    await run(() => setStoreBrandReleased(storeId, brand.id, true, user.id), "Marca liberada");
+  };
+
+  const releaseBrandProducts = async (brand: StoreCatalogAccessBrand) => {
+    if (!user) return;
+    await runWithMessage(async () => {
+      const count = await grantBrandAccessWithProducts(storeId, brand.id, user.id);
+      return `Marca liberada e ${count} produto(s) foram liberados para esta loja.`;
+    });
+  };
+
+  const releaseEverything = async () => {
+    if (!user) return;
+    const confirmation = window.prompt("Para liberar todas as marcas e todos os produtos para esta loja, digite LIBERAR.");
+    if (confirmation !== "LIBERAR") return;
+
+    await runWithMessage(async () => {
+      const result = await grantAllBrandsAndProducts(storeId, user.id);
+      return `${result.brandsCount} marca(s) e ${result.productsCount} produto(s) liberados para esta loja.`;
+    });
+  };
+
   const releasedCount = mode === "brands" ? brands.filter(item => item.released).length : products.filter(item => item.released).length;
   const totalCount = mode === "brands" ? brands.length : products.length;
 
@@ -89,6 +142,7 @@ export function StoreCatalogAccessManager({ storeId, mode }: { storeId: string; 
           {mode === "brands" ? (
             <>
               <Button size="sm" disabled={saving} onClick={() => run(() => setAllStoreBrandsReleased(storeId, true, user!.id), "Todas as marcas foram liberadas")}>Liberar todas</Button>
+              <Button size="sm" disabled={saving} onClick={() => void releaseEverything()}>Liberar todas + produtos</Button>
               <Button size="sm" variant="outline" disabled={saving} onClick={() => run(() => setAllStoreBrandsReleased(storeId, false, user!.id), "Todas as marcas foram removidas")}>Remover todas</Button>
             </>
           ) : (
@@ -124,19 +178,35 @@ export function StoreCatalogAccessManager({ storeId, mode }: { storeId: string; 
         ) : mode === "brands" ? (
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="border-b border-neutral-200 bg-neutral-50 text-[10px] uppercase tracking-[0.14em] text-neutral-500">
-              <tr><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Segmento</th><th className="px-4 py-3">Produtos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Acao</th></tr>
+              <tr><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Segmento</th><th className="px-4 py-3">Produtos</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Acoes</th></tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {filteredBrands.map((brand) => (
                 <tr key={brand.id}>
                   <td className="px-4 py-4 font-medium">{brand.name}</td>
                   <td className="px-4 py-4 text-neutral-600">{brand.segment || "-"}</td>
-                  <td className="px-4 py-4 text-neutral-600">{brand.products_count}</td>
+                  <td className="px-4 py-4 text-neutral-600">{brand.released_products_count} / {brand.products_count}</td>
                   <td className="px-4 py-4"><StatusBadge released={brand.released} /></td>
                   <td className="px-4 py-4">
-                    <Button size="sm" variant={brand.released ? "outline" : "default"} disabled={saving} onClick={() => run(() => setStoreBrandReleased(storeId, brand.id, !brand.released, user!.id), brand.released ? "Marca removida" : "Marca liberada")}>
-                      {brand.released ? "Remover" : "Liberar"}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {brand.released ? (
+                        <Button size="sm" variant="outline" disabled={saving} onClick={() => run(() => setStoreBrandReleased(storeId, brand.id, false, user!.id), "Marca removida")}>
+                          Remover
+                        </Button>
+                      ) : (
+                        <Button size="sm" disabled={saving} onClick={() => void releaseBrand(brand)}>
+                          Liberar marca
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" disabled={saving || brand.products_count === 0} onClick={() => void releaseBrandProducts(brand)}>
+                        Liberar produtos da marca
+                      </Button>
+                      {!brand.released && (
+                        <Button size="sm" variant="secondary" disabled={saving || brand.products_count === 0} onClick={() => void releaseBrandProducts(brand)}>
+                          Marca + produtos
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

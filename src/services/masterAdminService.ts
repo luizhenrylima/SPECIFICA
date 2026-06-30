@@ -83,6 +83,7 @@ export interface StoreCatalogAccessBrand {
   segment: string | null;
   released: boolean;
   products_count: number;
+  released_products_count: number;
 }
 
 export interface StoreCatalogAccessProduct {
@@ -332,6 +333,18 @@ function applyCounts(stores: any[], memberships: any[], products: any[], brands:
   });
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function activeGlobalProductsQuery() {
+  return supabaseAny
+    .from("products")
+    .select("id, brand_id")
+    .or("scope.eq.global,scope.is.null")
+    .eq("is_hidden", false);
+}
+
 export async function listStores() {
   const [{ data: stores, error: storesError }, { data: memberships, error: membershipsError }, { data: products, error: productsError }, { data: brands, error: brandsError }] = await Promise.all([
     supabaseAny.from("stores").select(STORE_SELECT).order("created_at", { ascending: false }),
@@ -477,7 +490,7 @@ async function writeAuditLog(userId: string, storeId: string | null, action: str
 export async function listStoreCatalogAccess(storeId: string) {
   const [{ data: brands, error: brandsError }, { data: products, error: productsError }, { data: brandLinks, error: brandLinksError }, { data: productLinks, error: productLinksError }] = await Promise.all([
     supabaseAny.from("brands").select("id, name, logo_url, segment").eq("scope", "global").eq("is_hidden", false).order("name"),
-    supabaseAny.from("products").select("id, name, brand_id, category, brands(id, name)").eq("scope", "global").eq("is_hidden", false).order("name"),
+    supabaseAny.from("products").select("id, name, brand_id, category, brands(id, name)").or("scope.eq.global,scope.is.null").eq("is_hidden", false).order("name"),
     supabaseAny.from("store_brands").select("brand_id").eq("store_id", storeId).eq("status", "active").eq("is_active", true),
     supabaseAny.from("store_products").select("product_id").eq("store_id", storeId).eq("status", "active").eq("is_active", true),
   ]);
@@ -488,7 +501,13 @@ export async function listStoreCatalogAccess(storeId: string) {
   const releasedBrandIds = new Set((brandLinks ?? []).map((item: any) => item.brand_id));
   const releasedProductIds = new Set((productLinks ?? []).map((item: any) => item.product_id));
   const productCounts = new Map<string, number>();
+  const releasedProductCounts = new Map<string, number>();
   (products ?? []).forEach((product: any) => productCounts.set(product.brand_id, (productCounts.get(product.brand_id) ?? 0) + 1));
+  (products ?? []).forEach((product: any) => {
+    if (releasedProductIds.has(product.id)) {
+      releasedProductCounts.set(product.brand_id, (releasedProductCounts.get(product.brand_id) ?? 0) + 1);
+    }
+  });
 
   return {
     brands: ((brands ?? []) as any[]).map((brand) => ({
@@ -498,6 +517,7 @@ export async function listStoreCatalogAccess(storeId: string) {
       segment: brand.segment,
       released: releasedBrandIds.has(brand.id),
       products_count: productCounts.get(brand.id) ?? 0,
+      released_products_count: releasedProductCounts.get(brand.id) ?? 0,
     })) as StoreCatalogAccessBrand[],
     products: ((products ?? []) as any[]).map((product) => ({
       id: product.id,
@@ -519,6 +539,7 @@ export async function setStoreBrandReleased(storeId: string, brandId: string, re
       is_active: true,
       hidden_by_store: false,
       created_by: actorUserId,
+      updated_at: nowIso(),
     }, { onConflict: "store_id,brand_id" });
     if (error) throw error;
   } else {
@@ -526,6 +547,32 @@ export async function setStoreBrandReleased(storeId: string, brandId: string, re
     if (error) throw error;
   }
   await writeAuditLog(actorUserId, storeId, released ? "store_brand_released" : "store_brand_removed", "brand", brandId, {});
+}
+
+export async function grantBrandAccessWithProducts(storeId: string, brandId: string, actorUserId: string) {
+  await setStoreBrandReleased(storeId, brandId, true, actorUserId);
+
+  const { data: products, error } = await activeGlobalProductsQuery().eq("brand_id", brandId);
+  if (error) throw error;
+
+  const rows = (products ?? []).map((product: any) => ({
+    store_id: storeId,
+    product_id: product.id,
+    status: "active",
+    is_active: true,
+    custom_visibility: true,
+    hidden_by_store: false,
+    created_by: actorUserId,
+    updated_at: nowIso(),
+  }));
+
+  if (rows.length > 0) {
+    const { error: productError } = await supabaseAny.from("store_products").upsert(rows, { onConflict: "store_id,product_id" });
+    if (productError) throw productError;
+  }
+
+  await writeAuditLog(actorUserId, storeId, "store_brand_products_released", "brand", brandId, { products_count: rows.length });
+  return rows.length;
 }
 
 export async function setStoreProductReleased(storeId: string, productId: string, released: boolean, actorUserId: string) {
@@ -541,6 +588,7 @@ export async function setStoreProductReleased(storeId: string, productId: string
       custom_visibility: true,
       hidden_by_store: false,
       created_by: actorUserId,
+      updated_at: nowIso(),
     }, { onConflict: "store_id,product_id" });
     if (error) throw error;
   } else {
@@ -551,10 +599,10 @@ export async function setStoreProductReleased(storeId: string, productId: string
 }
 
 export async function setAllStoreBrandsReleased(storeId: string, released: boolean, actorUserId: string) {
-  const { data: brands, error } = await supabaseAny.from("brands").select("id").eq("scope", "global").eq("is_hidden", false);
+  const { data: brands, error } = await supabaseAny.from("brands").select("id").or("scope.eq.global,scope.is.null").eq("is_hidden", false);
   if (error) throw error;
   if (released) {
-    const rows = (brands ?? []).map((brand: any) => ({ store_id: storeId, brand_id: brand.id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId }));
+    const rows = (brands ?? []).map((brand: any) => ({ store_id: storeId, brand_id: brand.id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId, updated_at: nowIso() }));
     if (rows.length) {
       const { error: upsertError } = await supabaseAny.from("store_brands").upsert(rows, { onConflict: "store_id,brand_id" });
       if (upsertError) throw upsertError;
@@ -566,8 +614,55 @@ export async function setAllStoreBrandsReleased(storeId: string, released: boole
   await writeAuditLog(actorUserId, storeId, released ? "store_all_brands_released" : "store_all_brands_removed", "store", storeId, {});
 }
 
+export async function grantAllBrandsAndProducts(storeId: string, actorUserId: string) {
+  const [{ data: brands, error: brandsError }, { data: products, error: productsError }] = await Promise.all([
+    supabaseAny.from("brands").select("id").or("scope.eq.global,scope.is.null").eq("is_hidden", false),
+    activeGlobalProductsQuery(),
+  ]);
+
+  const error = brandsError || productsError;
+  if (error) throw error;
+
+  const timestamp = nowIso();
+  const brandRows = (brands ?? []).map((brand: any) => ({
+    store_id: storeId,
+    brand_id: brand.id,
+    status: "active",
+    is_active: true,
+    hidden_by_store: false,
+    created_by: actorUserId,
+    updated_at: timestamp,
+  }));
+  const productRows = (products ?? []).map((product: any) => ({
+    store_id: storeId,
+    product_id: product.id,
+    status: "active",
+    is_active: true,
+    custom_visibility: true,
+    hidden_by_store: false,
+    created_by: actorUserId,
+    updated_at: timestamp,
+  }));
+
+  if (brandRows.length > 0) {
+    const { error: brandError } = await supabaseAny.from("store_brands").upsert(brandRows, { onConflict: "store_id,brand_id" });
+    if (brandError) throw brandError;
+  }
+  if (productRows.length > 0) {
+    const { error: productError } = await supabaseAny.from("store_products").upsert(productRows, { onConflict: "store_id,product_id" });
+    if (productError) throw productError;
+  }
+
+  await writeAuditLog(actorUserId, storeId, "store_all_brands_products_released", "store", storeId, {
+    brands_count: brandRows.length,
+    products_count: productRows.length,
+  });
+
+  return { brandsCount: brandRows.length, productsCount: productRows.length };
+}
+
 export async function setAllStoreProductsReleased(storeId: string, released: boolean, actorUserId: string, brandId?: string) {
-  let query = supabaseAny.from("products").select("id, brand_id").eq("scope", "global").eq("is_hidden", false);
+  let query = activeGlobalProductsQuery();
   if (brandId) query = query.eq("brand_id", brandId);
   const { data: products, error } = await query;
   if (error) throw error;
@@ -575,11 +670,11 @@ export async function setAllStoreProductsReleased(storeId: string, released: boo
   if (released) {
     const brandIds = [...new Set((products ?? []).map((product: any) => product.brand_id).filter(Boolean))];
     if (brandIds.length) {
-      const brandRows = brandIds.map((id) => ({ store_id: storeId, brand_id: id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId }));
+      const brandRows = brandIds.map((id) => ({ store_id: storeId, brand_id: id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId, updated_at: nowIso() }));
       const { error: brandError } = await supabaseAny.from("store_brands").upsert(brandRows, { onConflict: "store_id,brand_id" });
       if (brandError) throw brandError;
     }
-    const productRows = (products ?? []).map((product: any) => ({ store_id: storeId, product_id: product.id, status: "active", is_active: true, custom_visibility: true, hidden_by_store: false, created_by: actorUserId }));
+    const productRows = (products ?? []).map((product: any) => ({ store_id: storeId, product_id: product.id, status: "active", is_active: true, custom_visibility: true, hidden_by_store: false, created_by: actorUserId, updated_at: nowIso() }));
     if (productRows.length) {
       const { error: productError } = await supabaseAny.from("store_products").upsert(productRows, { onConflict: "store_id,product_id" });
       if (productError) throw productError;
@@ -595,4 +690,5 @@ export async function setAllStoreProductsReleased(storeId: string, released: boo
     if (deleteError) throw deleteError;
   }
   await writeAuditLog(actorUserId, storeId, released ? "store_products_released" : "store_products_removed", "store", storeId, { brand_id: brandId ?? null });
+  return products?.length ?? 0;
 }
