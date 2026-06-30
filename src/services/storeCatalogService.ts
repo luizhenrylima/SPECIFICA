@@ -30,9 +30,16 @@ function unique(values: Array<string | null | undefined>) {
   return [...new Set(values.filter(Boolean) as string[])];
 }
 
+function isActiveLink(link: any) {
+  return (link.status ?? "active") === "active"
+    && link.is_active !== false
+    && link.hidden_by_store !== true
+    && link.custom_visibility !== false;
+}
+
 async function selectProducts(ids: string[]): Promise<StoreCatalogProduct[]> {
   if (ids.length === 0) return [];
-  let result = await supabaseAny.from("products").select(PRODUCT_FIELDS).in("id", ids).eq("is_hidden", false);
+  let result = await supabaseAny.from("products").select(PRODUCT_FIELDS).in("id", ids);
   if (result.error && isHiddenColumnError(result.error)) {
     result = await supabaseAny.from("products").select(PRODUCT_LEGACY_FIELDS).in("id", ids);
   }
@@ -42,7 +49,7 @@ async function selectProducts(ids: string[]): Promise<StoreCatalogProduct[]> {
 
 async function selectBrands(ids: string[]): Promise<StoreCatalogBrand[]> {
   if (ids.length === 0) return [];
-  let result = await supabaseAny.from("brands").select(BRAND_FIELDS).in("id", ids).eq("is_hidden", false);
+  let result = await supabaseAny.from("brands").select(BRAND_FIELDS).in("id", ids);
   if (result.error && isHiddenColumnError(result.error)) {
     result = await supabaseAny.from("brands").select("id, name, logo_url, segment").in("id", ids);
   }
@@ -53,21 +60,17 @@ async function selectBrands(ids: string[]): Promise<StoreCatalogBrand[]> {
 export async function getVisibleBrandsForStore(storeId: string): Promise<StoreCatalogBrand[]> {
   const { data: links, error: linksError } = await supabaseAny
     .from("store_brands")
-    .select("brand_id")
-    .eq("store_id", storeId)
-    .eq("status", "active")
-    .eq("is_active", true)
-    .eq("hidden_by_store", false);
+    .select("brand_id, status, is_active, hidden_by_store")
+    .eq("store_id", storeId);
   if (linksError) throw linksError;
 
-  const linkBrandIds = unique((links ?? []).map((link: any) => link.brand_id));
+  const linkBrandIds = unique((links ?? []).filter(isActiveLink).map((link: any) => link.brand_id));
   const [{ data: owned, error: ownedError }, linkedBrands] = await Promise.all([
     supabaseAny
       .from("brands")
       .select(BRAND_FIELDS)
       .eq("scope", "store")
-      .eq("owner_store_id", storeId)
-      .eq("is_hidden", false),
+      .eq("owner_store_id", storeId),
     selectBrands(linkBrandIds),
   ]);
   if (ownedError && !isHiddenColumnError(ownedError)) throw ownedError;
@@ -85,21 +88,17 @@ export async function getVisibleProductsForStore(storeId: string): Promise<Store
 
   const { data: links, error: linksError } = await supabaseAny
     .from("store_products")
-    .select("product_id")
-    .eq("store_id", storeId)
-    .eq("status", "active")
-    .eq("is_active", true)
-    .eq("hidden_by_store", false);
+    .select("product_id, status, is_active, hidden_by_store, custom_visibility")
+    .eq("store_id", storeId);
   if (linksError) throw linksError;
 
-  const linkProductIds = unique((links ?? []).map((link: any) => link.product_id));
+  const linkProductIds = unique((links ?? []).filter(isActiveLink).map((link: any) => link.product_id));
   const [{ data: owned, error: ownedError }, linkedProducts] = await Promise.all([
     supabaseAny
       .from("products")
       .select(PRODUCT_FIELDS)
       .eq("scope", "store")
-      .eq("owner_store_id", storeId)
-      .eq("is_hidden", false),
+      .eq("owner_store_id", storeId),
     selectProducts(linkProductIds),
   ]);
   if (ownedError && !isHiddenColumnError(ownedError)) throw ownedError;

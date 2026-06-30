@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ImageUp, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { StoreLogoUploader } from "@/components/store-assets/StoreLogoUploader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStore } from "@/contexts/StoreContext";
 import {
@@ -57,6 +58,15 @@ export default function StoreAdminSettingsPage() {
     }
   };
 
+  const updateLogo = async (logoUrl: string) => {
+    if (!currentStoreId || !user) return;
+    const nextValues = { ...values, logo_url: logoUrl };
+    const normalizedValues = normalizeStoreBrandingValues(nextValues);
+    await updateStoreAdminBranding(currentStoreId, normalizedValues, user.id);
+    setValues(normalizedValues);
+    await refreshStores();
+  };
+
   if (!currentStoreId || !currentStore) {
     return (
       <Card className="rounded-lg">
@@ -97,18 +107,7 @@ export default function StoreAdminSettingsPage() {
           <ColorInput label="Cor do texto" value={values.text_color} onChange={(value) => setValue("text_color", value)} />
         </div>
 
-        <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-neutral-900">Upload de logo</p>
-              <p className="mt-1 text-xs text-neutral-500">Por enquanto use uma URL publica da imagem.</p>
-            </div>
-            <Button type="button" variant="outline" disabled className="gap-2">
-              <ImageUp size={15} />
-              Upload
-            </Button>
-          </div>
-        </div>
+        <StoreLogoUploader storeId={currentStoreId} logoUrl={values.logo_url} onChange={updateLogo} />
 
         <div className="flex justify-end">
           <Button type="submit" disabled={loading} className="gap-2">

@@ -152,8 +152,8 @@ export default function Navbar() {
   const roleLabel = isSuperAdmin ? roleLabels.super_admin : currentRole ? roleLabels[currentRole] ?? currentRole : "sem papel";
   const canManagePlatform = isMasterAdmin;
   const canManageStore = canManagePlatform || isAdmin || isSuperAdmin || isStoreAdmin || isManager || isStoreManager;
-  const canUseRoutine = canManageStore || isSeller || isStoreSeller;
-  const canUseManagement = canManageStore || isSeller || isStoreSeller;
+  const canUseRoutine = isSeller || isStoreSeller;
+  const canUseManagement = canManageStore;
   const canUseFinance = canManageStore || currentRole === "finance" || currentRole === "financial";
   const canUseProjects = canManageStore || canUseRoutine || isStaff || isStoreArchitect;
   const canSeeRelationship = canManageStore || canUseRoutine || isArchitect || isStoreArchitect;

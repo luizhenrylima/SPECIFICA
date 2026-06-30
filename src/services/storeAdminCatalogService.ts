@@ -54,6 +54,21 @@ function cleanText(value: string) {
   return trimmed.length ? trimmed : null;
 }
 
+function isReleasedCatalogLink(link: any) {
+  return (link.status ?? "active") === "active"
+    && link.is_active !== false
+    && link.hidden_by_store !== true
+    && link.custom_visibility !== false;
+}
+
+function isActiveCatalogLink(link: any) {
+  return (link.status ?? "active") === "active" && link.is_active !== false;
+}
+
+function isHiddenCatalogRow(row: any) {
+  return row?.is_hidden === true;
+}
+
 async function writeAuditLog(actorUserId: string, storeId: string, action: string, entityType: string, entityId: string | null, metadata: Record<string, unknown>) {
   try {
     await supabaseAny.from("audit_logs").insert({
@@ -79,7 +94,7 @@ export async function getStoreAdminSummary(storeId: string) {
     ownedBrands,
   ] = await Promise.all([
     supabaseAny.from("store_members").select("role,status").eq("store_id", storeId),
-    supabaseAny.from("store_products").select("hidden_by_store,is_active,status").eq("store_id", storeId),
+    supabaseAny.from("store_products").select("hidden_by_store,is_active,status,custom_visibility").eq("store_id", storeId),
     supabaseAny.from("store_brands").select("hidden_by_store,is_active,status").eq("store_id", storeId),
     supabaseAny.from("products").select("id,is_hidden").eq("scope", "store").eq("owner_store_id", storeId),
     supabaseAny.from("brands").select("id,is_hidden").eq("scope", "store").eq("owner_store_id", storeId),
@@ -90,20 +105,20 @@ export async function getStoreAdminSummary(storeId: string) {
 
   const activeMembers = (members.data ?? []).filter((item: any) => item.status === "active");
   const visibleProducts = [
-    ...(productLinks.data ?? []).filter((item: any) => item.status === "active" && item.is_active && !item.hidden_by_store),
-    ...(ownedProducts.data ?? []).filter((item: any) => !item.is_hidden),
+    ...(productLinks.data ?? []).filter(isReleasedCatalogLink),
+    ...(ownedProducts.data ?? []).filter((item: any) => !isHiddenCatalogRow(item)),
   ];
   const hiddenProducts = [
-    ...(productLinks.data ?? []).filter((item: any) => item.hidden_by_store || item.status !== "active" || !item.is_active),
-    ...(ownedProducts.data ?? []).filter((item: any) => item.is_hidden),
+    ...(productLinks.data ?? []).filter((item: any) => !isReleasedCatalogLink(item)),
+    ...(ownedProducts.data ?? []).filter(isHiddenCatalogRow),
   ];
   const visibleBrands = [
-    ...(brandLinks.data ?? []).filter((item: any) => item.status === "active" && item.is_active && !item.hidden_by_store),
-    ...(ownedBrands.data ?? []).filter((item: any) => !item.is_hidden),
+    ...(brandLinks.data ?? []).filter(isReleasedCatalogLink),
+    ...(ownedBrands.data ?? []).filter((item: any) => !isHiddenCatalogRow(item)),
   ];
   const hiddenBrands = [
-    ...(brandLinks.data ?? []).filter((item: any) => item.hidden_by_store || item.status !== "active" || !item.is_active),
-    ...(ownedBrands.data ?? []).filter((item: any) => item.is_hidden),
+    ...(brandLinks.data ?? []).filter((item: any) => !isReleasedCatalogLink(item)),
+    ...(ownedBrands.data ?? []).filter(isHiddenCatalogRow),
   ];
 
   return {
@@ -123,7 +138,7 @@ export async function listStoreAdminBrands(storeId: string): Promise<StoreAdminB
   const [{ data: links, error: linksError }, { data: owned, error: ownedError }, { data: productCounts, error: countsError }] = await Promise.all([
     supabaseAny
       .from("store_brands")
-      .select("id, brand_id, status, is_active, hidden_by_store, brands(id, name, logo_url, segment, scope, owner_store_id)")
+      .select("id, brand_id, status, is_active, hidden_by_store, brands(id, name, logo_url, segment, scope, owner_store_id, is_hidden)")
       .eq("store_id", storeId)
       .order("created_at", { ascending: false }),
     supabaseAny
@@ -134,7 +149,7 @@ export async function listStoreAdminBrands(storeId: string): Promise<StoreAdminB
       .order("name"),
     supabaseAny
       .from("products")
-      .select("brand_id")
+      .select("brand_id, is_hidden")
       .or(`owner_store_id.eq.${storeId},scope.eq.global`),
   ]);
 
@@ -142,12 +157,14 @@ export async function listStoreAdminBrands(storeId: string): Promise<StoreAdminB
   if (error) throw error;
 
   const counts = new Map<string, number>();
-  (productCounts ?? []).forEach((row: any) => counts.set(row.brand_id, (counts.get(row.brand_id) ?? 0) + 1));
+  (productCounts ?? [])
+    .filter((row: any) => !isHiddenCatalogRow(row))
+    .forEach((row: any) => counts.set(row.brand_id, (counts.get(row.brand_id) ?? 0) + 1));
   const rows = new Map<string, StoreAdminBrand>();
 
   (links ?? []).forEach((link: any) => {
     const brand = link.brands;
-    if (!brand) return;
+    if (!brand || isHiddenCatalogRow(brand)) return;
     rows.set(brand.id, {
       id: brand.id,
       name: brand.name,
@@ -157,8 +174,8 @@ export async function listStoreAdminBrands(storeId: string): Promise<StoreAdminB
       owner_store_id: brand.owner_store_id,
       access_id: link.id,
       access_status: link.status,
-      hidden_by_store: Boolean(link.hidden_by_store),
-      is_active: Boolean(link.is_active) && link.status === "active",
+      hidden_by_store: link.hidden_by_store === true,
+      is_active: isActiveCatalogLink(link),
       products_count: counts.get(brand.id) ?? 0,
     });
   });
@@ -173,8 +190,8 @@ export async function listStoreAdminBrands(storeId: string): Promise<StoreAdminB
       owner_store_id: brand.owner_store_id,
       access_id: null,
       access_status: "active",
-      hidden_by_store: Boolean(brand.is_hidden),
-      is_active: !brand.is_hidden,
+      hidden_by_store: isHiddenCatalogRow(brand),
+      is_active: !isHiddenCatalogRow(brand),
       products_count: counts.get(brand.id) ?? 0,
     });
   });
@@ -186,7 +203,7 @@ export async function listStoreAdminProducts(storeId: string): Promise<StoreAdmi
   const [{ data: links, error: linksError }, { data: owned, error: ownedError }] = await Promise.all([
     supabaseAny
       .from("store_products")
-      .select("id, product_id, status, is_active, hidden_by_store, products(id, name, brand_id, category, description, images, scope, owner_store_id, brands(id, name))")
+      .select("id, product_id, status, is_active, hidden_by_store, custom_visibility, products(id, name, brand_id, category, description, images, scope, owner_store_id, is_hidden, brands(id, name))")
       .eq("store_id", storeId)
       .order("created_at", { ascending: false }),
     supabaseAny
@@ -203,7 +220,7 @@ export async function listStoreAdminProducts(storeId: string): Promise<StoreAdmi
   const rows = new Map<string, StoreAdminProduct>();
   (links ?? []).forEach((link: any) => {
     const product = link.products;
-    if (!product) return;
+    if (!product || isHiddenCatalogRow(product)) return;
     rows.set(product.id, {
       id: product.id,
       name: product.name,
@@ -216,8 +233,8 @@ export async function listStoreAdminProducts(storeId: string): Promise<StoreAdmi
       owner_store_id: product.owner_store_id,
       access_id: link.id,
       access_status: link.status,
-      hidden_by_store: Boolean(link.hidden_by_store),
-      is_active: Boolean(link.is_active) && link.status === "active",
+      hidden_by_store: link.hidden_by_store === true || link.custom_visibility === false,
+      is_active: isActiveCatalogLink(link),
     });
   });
 
@@ -234,8 +251,8 @@ export async function listStoreAdminProducts(storeId: string): Promise<StoreAdmi
       owner_store_id: product.owner_store_id,
       access_id: null,
       access_status: "active",
-      hidden_by_store: Boolean(product.is_hidden),
-      is_active: !product.is_hidden,
+      hidden_by_store: isHiddenCatalogRow(product),
+      is_active: !isHiddenCatalogRow(product),
     });
   });
 

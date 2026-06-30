@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ImageUp, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { StoreLogoUploader } from "@/components/store-assets/StoreLogoUploader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUpdateStoreBranding } from "@/hooks/useStoreMutations";
 import {
@@ -57,6 +58,15 @@ export function StoreBrandingManager({ store, onSaved }: { store: MasterStore; o
     }
   };
 
+  const handleLogoChange = async (logoUrl: string) => {
+    if (!user) return;
+    const nextValues = { ...values, logo_url: logoUrl };
+    const normalizedValues = normalizeStoreBrandingValues(nextValues);
+    await mutation.updateStoreBranding(store.id, normalizedValues, user.id);
+    setValues(normalizedValues);
+    await onSaved();
+  };
+
   return (
     <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
       <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
@@ -93,18 +103,7 @@ export function StoreBrandingManager({ store, onSaved }: { store: MasterStore; o
           <ColorInput label="Cor do texto" value={values.text_color} onChange={(value) => setValue("text_color", value)} />
         </div>
 
-        <div className="rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-neutral-900">Upload de logo</p>
-              <p className="mt-1 text-xs text-neutral-500">Estrutura preparada; por enquanto use uma URL publica da imagem.</p>
-            </div>
-            <button type="button" disabled className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-400">
-              <ImageUp size={15} />
-              Upload
-            </button>
-          </div>
-        </div>
+        <StoreLogoUploader storeId={store.id} logoUrl={values.logo_url} onChange={handleLogoChange} />
 
         <div className="flex justify-end">
           <button

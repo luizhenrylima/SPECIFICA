@@ -13,6 +13,7 @@ type NewProjectOptions = {
 export function buildNewProjectPayload(userId: string, name: string, options: NewProjectOptions) {
   return {
     user_id: userId,
+    created_by: userId,
     name,
     client_name: options.clientName,
     initial_notes: options.initialNotes || null,

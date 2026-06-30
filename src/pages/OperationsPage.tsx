@@ -600,7 +600,14 @@ const CRM_TARGET_SELECT = "id, store_id, seller_user_id, period_month, target_va
 
 export default function OperationsPage() {
   const { user, isAdmin, isManager, isSeller } = useAuth();
-  const { currentStoreId, loading: storeLoading } = useStore();
+  const {
+    currentStoreId,
+    loading: storeLoading,
+    isSuperAdmin,
+    isStoreAdmin,
+    isManager: isStoreManager,
+    isSeller: isStoreSeller,
+  } = useStore();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState<SectionKey>("visao");
   const [projects, setProjects] = useState<CrmProject[]>([]);
@@ -636,7 +643,8 @@ export default function OperationsPage() {
   });
   const [selectedKanbanItem, setSelectedKanbanItem] = useState<CrmProject | null>(null);
   const [kanbanDraft, setKanbanDraft] = useState({ crmStatus: "novo_atendimento" as CrmStatus, tags: "", notes: "", nextAction: "", nextFollowupAt: "" });
-  const canManageOrders = isAdmin || isManager;
+  const canManageOrders = isAdmin || isManager || isSuperAdmin || isStoreAdmin || isStoreManager;
+  const isCurrentSeller = isSeller || isStoreSeller;
   const isRoutinePage = location.pathname.startsWith("/rotina") || !canManageOrders;
   const visibleSections = useMemo(() => {
     if (canManageOrders) return sections;
@@ -687,8 +695,8 @@ export default function OperationsPage() {
       .eq("store_id", currentStoreId)
       .order("created_at", { ascending: false });
 
-    if (!canManageOrders && isSeller) projectQuery = projectQuery.or(`seller_user_id.eq.${user.id},user_id.eq.${user.id}`);
-    if (!canManageOrders && !isSeller) projectQuery = projectQuery.eq("user_id", user.id);
+    if (!canManageOrders && isCurrentSeller) projectQuery = projectQuery.or(`seller_user_id.eq.${user.id},user_id.eq.${user.id}`);
+    if (!canManageOrders && !isCurrentSeller) projectQuery = projectQuery.eq("user_id", user.id);
 
     const { data: projectRows, error } = await projectQuery;
     if (error) {
@@ -908,7 +916,7 @@ export default function OperationsPage() {
 
   useEffect(() => {
     void loadCrm();
-  }, [user, canManageOrders, isSeller, currentStoreId, storeLoading]);
+  }, [user, canManageOrders, isCurrentSeller, currentStoreId, storeLoading]);
 
   const sellerFilterOptions = useMemo(() => {
     const grouped = new Map<string, { id: string; name: string; projects: number; value: number }>();
@@ -1564,6 +1572,8 @@ export default function OperationsPage() {
       crm_status: leadDraft.crmStatus,
       crm_tags: parseTags(leadDraft.tags),
       next_action: "Primeiro contato",
+      created_by: user.id,
+      updated_by: user.id,
     };
 
     const { data, error } = await (supabase as any)
