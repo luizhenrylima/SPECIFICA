@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { StoreBrandingValues } from "@/services/storesService";
 import { normalizeStoreBrandingValues } from "@/services/storesService";
+import { recordStorePerformanceEvent } from "@/services/storeCatalogService";
 
 const supabaseAny = supabase as any;
 
@@ -260,6 +261,7 @@ export async function setStoreProductHidden(storeId: string, product: StoreAdmin
   }
 
   await writeAuditLog(actorUserId, storeId, hidden ? "store_product_hidden" : "store_product_unhidden", "product", product.id, { scope: product.scope });
+  await recordStorePerformanceEvent(storeId, hidden ? "product_hidden" : "product_unhidden", { userId: actorUserId, productId: product.id, brandId: product.brand_id });
 }
 
 export async function setStoreBrandHidden(storeId: string, brand: StoreAdminBrand, hidden: boolean, actorUserId: string) {
@@ -281,6 +283,7 @@ export async function setStoreBrandHidden(storeId: string, brand: StoreAdminBran
   }
 
   await writeAuditLog(actorUserId, storeId, hidden ? "store_brand_hidden" : "store_brand_unhidden", "brand", brand.id, { scope: brand.scope });
+  await recordStorePerformanceEvent(storeId, hidden ? "brand_hidden" : "brand_unhidden", { userId: actorUserId, brandId: brand.id });
 }
 
 export async function createStoreOwnedBrand(storeId: string, values: StoreOwnedBrandValues, actorUserId: string) {

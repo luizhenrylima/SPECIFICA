@@ -13,13 +13,12 @@ import {
   getLocalHiddenBrandIds,
   getLocalHiddenProductIds,
   isCatalogRecordVisible,
-  isHiddenColumnMissing,
   mergeLocalHiddenState,
 } from '@/lib/catalogVisibility';
+import { getVisibleBrandsForStore, getVisibleProductsForStore } from '@/services/storeCatalogService';
 
 type Product = Tables<'products'> & { is_hidden?: boolean | null };
 type Brand = Pick<Tables<'brands'>, 'id' | 'name' | 'logo_url' | 'segment'> & { is_hidden?: boolean | null };
-const FAVORITE_PRODUCT_FIELDS = 'id, name, images, is_hidden';
 
 interface FavoriteNote {
   productId: string;
@@ -105,27 +104,11 @@ export default function FavoritesPage() {
         const brandIds = ((favoriteBrandsRes.data || []) as Array<{ brand_id: string }>).map(item => item.brand_id);
         setFavoriteBrandIds(new Set(brandIds));
         if (brandIds.length > 0) {
-          let favoriteBrandsResult = await supabase
-            .from('brands')
-            .select('id, name, logo_url, segment, is_hidden')
-            .in('id', brandIds)
-            .eq('is_hidden', false)
-            .order('name');
-          if (favoriteBrandsResult.error && isHiddenColumnMissing(favoriteBrandsResult.error)) {
-            favoriteBrandsResult = await supabase
-              .from('brands')
-              .select('id, name, logo_url, segment')
-              .in('id', brandIds)
-              .order('name');
-          }
+          const visibleBrands = await getVisibleBrandsForStore(currentStoreId);
           if (!cancelled) {
-            if (favoriteBrandsResult.error) {
-              console.warn('Favorite brand details load failed:', favoriteBrandsResult.error);
-              setBrands([]);
-            } else {
-              setBrands(mergeLocalHiddenState((favoriteBrandsResult.data as Brand[]) ?? [], getLocalHiddenBrandIds())
-                .filter(brand => isCatalogRecordVisible(brand, getLocalHiddenBrandIds())));
-            }
+            setBrands(mergeLocalHiddenState((visibleBrands as Brand[]) ?? [], getLocalHiddenBrandIds())
+              .filter(brand => brandIds.includes(brand.id))
+              .filter(brand => isCatalogRecordVisible(brand, getLocalHiddenBrandIds())));
           }
         } else {
           setBrands([]);
@@ -134,12 +117,10 @@ export default function FavoritesPage() {
 
       if (favoriteProductsRes.data && favoriteProductsRes.data.length > 0) {
         const ids = favoriteProductsRes.data.map((f) => f.product_id);
-        let productsResult = await supabase.from('products').select(FAVORITE_PRODUCT_FIELDS).in('id', ids).eq('is_hidden', false);
-        if (productsResult.error && isHiddenColumnMissing(productsResult.error)) {
-          productsResult = await supabase.from('products').select('id, name, images').in('id', ids);
-        }
+        const visibleProducts = await getVisibleProductsForStore(currentStoreId);
         if (!cancelled) {
-          setProducts(((productsResult.data as Product[]) ?? [])
+          setProducts(((visibleProducts as Product[]) ?? [])
+            .filter(product => ids.includes(product.id))
             .filter(product => isCatalogRecordVisible(product, getLocalHiddenProductIds())));
         }
       } else {
@@ -162,27 +143,22 @@ export default function FavoritesPage() {
 
   const loadAvailableBrands = useCallback(async () => {
     setLoadingAvailableBrands(true);
-    let brandsResult = await supabase
-      .from('brands')
-      .select('id, name, logo_url, segment, is_hidden')
-      .eq('is_hidden', false)
-      .order('name');
-    if (brandsResult.error && isHiddenColumnMissing(brandsResult.error)) {
-      brandsResult = await supabase
-        .from('brands')
-        .select('id, name, logo_url, segment')
-        .order('name');
-    }
-    if (brandsResult.error) {
-      toast({ title: 'Erro ao carregar marcas', description: 'Tente novamente.', variant: 'destructive' });
+    if (!currentStoreId) {
       setAvailableBrands([]);
-    } else {
-      setAvailableBrands(mergeLocalHiddenState(((brandsResult.data as Brand[]) || []), getLocalHiddenBrandIds())
+      setLoadingAvailableBrands(false);
+      return;
+    }
+    try {
+      const brandsResult = await getVisibleBrandsForStore(currentStoreId);
+      setAvailableBrands(mergeLocalHiddenState(((brandsResult as Brand[]) || []), getLocalHiddenBrandIds())
         .filter(brand => isCatalogRecordVisible(brand, getLocalHiddenBrandIds()))
         .filter(brand => !favoriteBrandIds.has(brand.id)));
+    } catch {
+      toast({ title: 'Erro ao carregar marcas', description: 'Tente novamente.', variant: 'destructive' });
+      setAvailableBrands([]);
     }
     setLoadingAvailableBrands(false);
-  }, [favoriteBrandIds]);
+  }, [favoriteBrandIds, currentStoreId]);
 
   const openBrandExplorer = useCallback(() => {
     if (!currentStoreId) {

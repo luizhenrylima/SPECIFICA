@@ -349,6 +349,7 @@ export default function CatalogPage() {
     selectedStyles,
     selectedEnvironments,
     searchQuery: debouncedSearch,
+    storeId: currentStoreId,
   });
   const {
     brands, products, categories, styleTags, environments,
@@ -560,6 +561,18 @@ export default function CatalogPage() {
       />
     );
   }, [favoriteIds, favNotes, brandMap, productStyleMap, styleTagMap, handleFavoriteClick, user]);
+
+  if (!storeLoading && !currentStoreId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <CatalogHelmet />
+        <div className="max-w-lg rounded-xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="font-serif text-2xl text-foreground">Nenhuma loja ativa selecionada</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Selecione uma loja para continuar.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (fetchError) {
     return (

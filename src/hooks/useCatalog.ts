@@ -6,12 +6,13 @@ import {
   getLocalHiddenBrandIds,
   getLocalHiddenProductIds,
   isCatalogRecordVisible,
-  isHiddenColumnMissing,
   mergeLocalHiddenState,
 } from '@/lib/catalogVisibility';
+import { getVisibleBrandsForStore, getVisibleProductsForStore } from '@/services/storeCatalogService';
+import type { StoreCatalogProduct } from '@/services/storeCatalogService';
 
 type Brand = Tables<'brands'> & { is_hidden?: boolean | null };
-type Product = Tables<'products'> & { is_hidden?: boolean | null };
+type Product = StoreCatalogProduct;
 type Category = Tables<'categories'>;
 
 interface StyleTag { id: string; name: string; }
@@ -29,13 +30,15 @@ interface CatalogFilters {
   selectedStyles: string[];
   selectedEnvironments: string[];
   searchQuery: string;
+  storeId: string | null;
 }
 
 export function useCatalog(filters: CatalogFilters) {
-  const { selectedBrands, selectedCategories, selectedStyles, selectedEnvironments, searchQuery } = filters;
+  const { selectedBrands, selectedCategories, selectedStyles, selectedEnvironments, searchQuery, storeId } = filters;
+  const storeCacheSuffix = storeId ?? 'no-store';
 
   // Phase 1: critical data
-  const [brands, setBrands] = useState<Brand[]>(() => cacheGet<Brand[]>('catalog_brands') ?? []);
+  const [brands, setBrands] = useState<Brand[]>(() => cacheGet<Brand[]>(`catalog_brands_${storeCacheSuffix}`) ?? []);
   const [brandsLoaded, setBrandsLoaded] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
@@ -48,8 +51,8 @@ export function useCatalog(filters: CatalogFilters) {
   const abortRef = useRef<AbortController | null>(null);
 
   // Phase 2: filter metadata (loaded after initial render)
-  const [categories, setCategories] = useState<Category[]>(() => cacheGet<Category[]>('catalog_categories') ?? []);
-  const [categoryProductCount, setCategoryProductCount] = useState<CategoryProductCount>(() => cacheGet<CategoryProductCount>('catalog_categoryProductCount') ?? {});
+  const [categories, setCategories] = useState<Category[]>(() => cacheGet<Category[]>(`catalog_categories_${storeCacheSuffix}`) ?? []);
+  const [categoryProductCount, setCategoryProductCount] = useState<CategoryProductCount>(() => cacheGet<CategoryProductCount>(`catalog_categoryProductCount_${storeCacheSuffix}`) ?? {});
   const [styleTags, setStyleTags] = useState<StyleTag[]>(() => cacheGet<StyleTag[]>('catalog_styleTags') ?? []);
   const [productStyleTags, setProductStyleTags] = useState<ProductStyleTag[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>(() => cacheGet<Environment[]>('catalog_environments') ?? []);
@@ -59,33 +62,9 @@ export function useCatalog(filters: CatalogFilters) {
   const [fetchError, setFetchError] = useState(false);
 
   const fetchAllProductCategories = useCallback(async () => {
-    const rows: { id: string; category: string | null; is_hidden?: boolean | null }[] = [];
-    const pageSize = 1000;
-    const localHiddenProducts = getLocalHiddenProductIds();
-    for (let from = 0; ; from += pageSize) {
-      let result = await supabase
-        .from('products')
-        .select('id, category, is_hidden')
-        .eq('is_hidden', false)
-        .not('category', 'is', null)
-        .range(from, from + pageSize - 1);
-
-      if (result.error && isHiddenColumnMissing(result.error)) {
-        result = await supabase
-          .from('products')
-          .select('id, category')
-          .not('category', 'is', null)
-          .range(from, from + pageSize - 1);
-      }
-
-      const { data, error } = result;
-      if (error) throw error;
-      rows.push(...(((data ?? []) as { id: string; category: string | null; is_hidden?: boolean | null }[])
-        .filter(row => isCatalogRecordVisible(row, localHiddenProducts))));
-      if (!data || data.length < pageSize) break;
-    }
-    return rows;
-  }, []);
+    if (!storeId) return [];
+    return getVisibleProductsForStore(storeId);
+  }, [storeId]);
 
   const fetchAllProductStyleTags = useCallback(async () => {
     const rows: ProductStyleTag[] = [];
@@ -203,80 +182,46 @@ export function useCatalog(filters: CatalogFilters) {
         return;
       }
 
-      const buildQuery = (withHiddenColumn: boolean) => {
-        let query = supabase
-          .from('products')
-          .select(withHiddenColumn ? 'id, name, brand_id, category, images, is_hidden' : 'id, name, brand_id, category, images', { count: 'exact' })
-          .order('name')
-          .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
-
-        if (withHiddenColumn) {
-          query = query.eq('is_hidden', false);
-        }
-
-        // Server-side filters
-        const visibleBrandSet = new Set(visibleBrandIds);
-        if (selectedBrands.length > 0) {
-          const selectedVisibleBrands = selectedBrands.filter(id => visibleBrandSet.size === 0 || visibleBrandSet.has(id));
-          if (selectedVisibleBrands.length === 0) return null;
-          query = query.in('brand_id', selectedVisibleBrands);
-        } else if (visibleBrandIds.length > 0) {
-          query = query.in('brand_id', visibleBrandIds);
-        }
-        if (selectedCategories.length > 0) {
-          query = query.in('category', selectedCategories);
-        }
-        const searchTerm = searchQuery.trim().replace(/[,%]/g, ' ');
-        if (searchTerm) {
-          const searchFilters = [
-            `name.ilike.%${searchTerm}%`,
-            `category.ilike.%${searchTerm}%`,
-          ];
-          if (searchBrandIds.length > 0) {
-            searchFilters.push(`brand_id.in.(${searchBrandIds.join(',')})`);
-          }
-          query = query.or(searchFilters.join(','));
-        }
-        // Style/env filter via product IDs (already computed)
-        if (filterProductIds !== null) {
-          query = query.in('id', filterProductIds);
-        }
-
-        return query;
-      };
-
-      let query = buildQuery(true);
-      if (!query) {
+      if (!storeId) {
         if (!append) setProducts([]);
         setTotalCount(0);
         setHasMore(false);
         return;
       }
 
-      let { data, count, error } = await query;
-      if (error && isHiddenColumnMissing(error)) {
-        const fallbackQuery = buildQuery(false);
-        if (!fallbackQuery) {
-          if (!append) setProducts([]);
-          setTotalCount(0);
-          setHasMore(false);
-          return;
+      const allProducts = await getVisibleProductsForStore(storeId);
+      const localHiddenProducts = getLocalHiddenProductIds();
+      let filtered = allProducts.filter(product => isCatalogRecordVisible(product, localHiddenProducts));
+
+        const visibleBrandSet = new Set(visibleBrandIds);
+        if (selectedBrands.length > 0) {
+          const selectedVisibleBrands = selectedBrands.filter(id => visibleBrandSet.size === 0 || visibleBrandSet.has(id));
+          if (selectedVisibleBrands.length === 0) filtered = [];
+          else filtered = filtered.filter(product => selectedVisibleBrands.includes(product.brand_id));
+        } else if (visibleBrandIds.length > 0) {
+          filtered = filtered.filter(product => visibleBrandIds.includes(product.brand_id));
         }
-        const fallbackResult = await fallbackQuery;
-        data = fallbackResult.data;
-        count = fallbackResult.count;
-        error = fallbackResult.error;
-      }
+        if (selectedCategories.length > 0) {
+          filtered = filtered.filter(product => selectedCategories.includes(product.category));
+        }
+        const searchTerm = searchQuery.trim().replace(/[,%]/g, ' ');
+        if (searchTerm) {
+          const normalizedTerm = searchTerm.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const brandMatches = new Set(searchBrandIds);
+          filtered = filtered.filter(product => {
+            const haystack = `${product.name} ${product.category}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            return haystack.includes(normalizedTerm) || brandMatches.has(product.brand_id);
+          });
+        }
+        if (filterProductIds !== null) {
+          const allowedIds = new Set(filterProductIds);
+          filtered = filtered.filter(product => allowedIds.has(product.id));
+        }
 
       if (controller.signal.aborted) return;
-      if (error) throw error;
 
-      const localHiddenProducts = getLocalHiddenProductIds();
-      const visibleBrandSet = new Set(visibleBrandIds);
-      const fetched = ((data as Product[]) ?? [])
-        .filter(product => isCatalogRecordVisible(product, localHiddenProducts))
-        .filter(product => visibleBrandSet.size === 0 || visibleBrandSet.has(product.brand_id));
-      const total = count ?? fetched.length;
+      const total = filtered.length;
+      const fetched = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
       if (append) {
         setProducts(prev => [...prev, ...fetched]);
@@ -294,31 +239,31 @@ export function useCatalog(filters: CatalogFilters) {
         setLoadingMore(false);
       }
     }
-  }, [selectedBrands, selectedCategories, searchQuery, searchBrandIds, filterProductIds, visibleBrandIds, brandsLoaded]);
+  }, [selectedBrands, selectedCategories, searchQuery, searchBrandIds, filterProductIds, visibleBrandIds, brandsLoaded, storeId]);
 
   // Load brands + featured (once)
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        let brandsRequest = supabase
-          .from('brands')
-          .select('id, name, logo_url, segment, is_hidden')
-          .eq('is_hidden', false)
-          .order('name');
-        let brandsRes = await brandsRequest;
-        if (brandsRes.error && isHiddenColumnMissing(brandsRes.error)) {
-          brandsRes = await supabase.from('brands').select('id, name, logo_url, segment').order('name');
+        setBrandsLoaded(false);
+        if (!storeId) {
+          setBrands([]);
+          setBrandsLoaded(true);
+          setFeaturedProducts([]);
+          return;
         }
+
+        const brandsDataRaw = await getVisibleBrandsForStore(storeId);
 
         const [fpRes] = await Promise.all([
           supabase.from('featured_products').select('id, product_id, display_order').order('display_order'),
         ]);
         if (cancelled) return;
 
-        const brandsData = mergeLocalHiddenState((brandsRes.data as Brand[]) ?? [], getLocalHiddenBrandIds())
+        const brandsData = mergeLocalHiddenState((brandsDataRaw as Brand[]) ?? [], getLocalHiddenBrandIds())
           .filter(brand => isCatalogRecordVisible(brand, getLocalHiddenBrandIds()));
-        cacheSet('catalog_brands', brandsData);
+        cacheSet(`catalog_brands_${storeCacheSuffix}`, brandsData);
         setBrands(brandsData);
         setBrandsLoaded(true);
         setFeaturedProducts((fpRes.data as FeaturedProduct[]) ?? []);
@@ -331,7 +276,7 @@ export function useCatalog(filters: CatalogFilters) {
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [storeId]);
 
   // Fetch products when filters change (reset to page 0)
   useEffect(() => {
@@ -349,7 +294,7 @@ export function useCatalog(filters: CatalogFilters) {
 
     async function loadFilters() {
       try {
-        const cachedCats = cacheGet<Category[]>('catalog_categories');
+        const cachedCats = cacheGet<Category[]>(`catalog_categories_${storeCacheSuffix}`);
         const cachedCategoryProductCount = null;
         const cachedTags = cacheGet<StyleTag[]>('catalog_styleTags');
         const cachedEnvs = cacheGet<Environment[]>('catalog_environments');
@@ -386,8 +331,8 @@ export function useCatalog(filters: CatalogFilters) {
         const tagsData = (tagsRes.data as StyleTag[]) ?? [];
         const envsData = (envRes.data as Environment[]) ?? [];
 
-        cacheSet('catalog_categories', catsData);
-        if (!cachedCategoryProductCount) cacheSet('catalog_categoryProductCount', nextCategoryProductCount);
+        cacheSet(`catalog_categories_${storeCacheSuffix}`, catsData);
+        if (!cachedCategoryProductCount) cacheSet(`catalog_categoryProductCount_${storeCacheSuffix}`, nextCategoryProductCount);
         if (!cachedTags) cacheSet('catalog_styleTags', tagsData);
         if (!cachedEnvs) cacheSet('catalog_environments', envsData);
 
@@ -409,7 +354,7 @@ export function useCatalog(filters: CatalogFilters) {
       if (typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(id);
       else clearTimeout(id);
     };
-  }, [fetchAllProductCategories, fetchAllProductEnvironments, fetchAllProductStyleTags]);
+  }, [fetchAllProductCategories, fetchAllProductEnvironments, fetchAllProductStyleTags, storeCacheSuffix]);
 
   // Load more (next page with same filters)
   const loadMore = useCallback(() => {

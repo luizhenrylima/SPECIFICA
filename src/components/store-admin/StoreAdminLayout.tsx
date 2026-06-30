@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, Boxes, Building2, Palette, Tags, Users } from "lucide-react";
+import { BarChart3, Boxes, Building2, Palette, Quote, Tags, TrendingUp, Users } from "lucide-react";
 import { useStore } from "@/contexts/StoreContext";
 
 const links = [
@@ -7,6 +7,8 @@ const links = [
   { to: "/gestao/usuarios", label: "Usuarios", icon: Users },
   { to: "/gestao/produtos", label: "Produtos", icon: Boxes },
   { to: "/gestao/marcas", label: "Marcas", icon: Tags },
+  { to: "/gestao/cotacoes", label: "Cotacoes", icon: Quote },
+  { to: "/gestao/performance", label: "Performance", icon: TrendingUp },
   { to: "/gestao/configuracoes", label: "Configuracoes", icon: Palette },
 ];
 

@@ -76,6 +76,24 @@ export interface MasterAdminStats {
   recentStores: MasterStore[];
 }
 
+export interface StoreCatalogAccessBrand {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  segment: string | null;
+  released: boolean;
+  products_count: number;
+}
+
+export interface StoreCatalogAccessProduct {
+  id: string;
+  name: string;
+  brand_id: string;
+  brand_name: string | null;
+  category: string | null;
+  released: boolean;
+}
+
 const STORE_SELECT = [
   "id",
   "name",
@@ -454,4 +472,127 @@ async function writeAuditLog(userId: string, storeId: string | null, action: str
   } catch (error) {
     console.warn("Audit log write failed:", error);
   }
+}
+
+export async function listStoreCatalogAccess(storeId: string) {
+  const [{ data: brands, error: brandsError }, { data: products, error: productsError }, { data: brandLinks, error: brandLinksError }, { data: productLinks, error: productLinksError }] = await Promise.all([
+    supabaseAny.from("brands").select("id, name, logo_url, segment").eq("scope", "global").eq("is_hidden", false).order("name"),
+    supabaseAny.from("products").select("id, name, brand_id, category, brands(id, name)").eq("scope", "global").eq("is_hidden", false).order("name"),
+    supabaseAny.from("store_brands").select("brand_id").eq("store_id", storeId).eq("status", "active").eq("is_active", true),
+    supabaseAny.from("store_products").select("product_id").eq("store_id", storeId).eq("status", "active").eq("is_active", true),
+  ]);
+
+  const error = brandsError || productsError || brandLinksError || productLinksError;
+  if (error) throw error;
+
+  const releasedBrandIds = new Set((brandLinks ?? []).map((item: any) => item.brand_id));
+  const releasedProductIds = new Set((productLinks ?? []).map((item: any) => item.product_id));
+  const productCounts = new Map<string, number>();
+  (products ?? []).forEach((product: any) => productCounts.set(product.brand_id, (productCounts.get(product.brand_id) ?? 0) + 1));
+
+  return {
+    brands: ((brands ?? []) as any[]).map((brand) => ({
+      id: brand.id,
+      name: brand.name,
+      logo_url: brand.logo_url,
+      segment: brand.segment,
+      released: releasedBrandIds.has(brand.id),
+      products_count: productCounts.get(brand.id) ?? 0,
+    })) as StoreCatalogAccessBrand[],
+    products: ((products ?? []) as any[]).map((product) => ({
+      id: product.id,
+      name: product.name,
+      brand_id: product.brand_id,
+      brand_name: product.brands?.name ?? null,
+      category: product.category,
+      released: releasedProductIds.has(product.id),
+    })) as StoreCatalogAccessProduct[],
+  };
+}
+
+export async function setStoreBrandReleased(storeId: string, brandId: string, released: boolean, actorUserId: string) {
+  if (released) {
+    const { error } = await supabaseAny.from("store_brands").upsert({
+      store_id: storeId,
+      brand_id: brandId,
+      status: "active",
+      is_active: true,
+      hidden_by_store: false,
+      created_by: actorUserId,
+    }, { onConflict: "store_id,brand_id" });
+    if (error) throw error;
+  } else {
+    const { error } = await supabaseAny.from("store_brands").delete().eq("store_id", storeId).eq("brand_id", brandId);
+    if (error) throw error;
+  }
+  await writeAuditLog(actorUserId, storeId, released ? "store_brand_released" : "store_brand_removed", "brand", brandId, {});
+}
+
+export async function setStoreProductReleased(storeId: string, productId: string, released: boolean, actorUserId: string) {
+  if (released) {
+    const { data: product, error: productError } = await supabaseAny.from("products").select("brand_id").eq("id", productId).maybeSingle();
+    if (productError) throw productError;
+    if (product?.brand_id) await setStoreBrandReleased(storeId, product.brand_id, true, actorUserId);
+    const { error } = await supabaseAny.from("store_products").upsert({
+      store_id: storeId,
+      product_id: productId,
+      status: "active",
+      is_active: true,
+      custom_visibility: true,
+      hidden_by_store: false,
+      created_by: actorUserId,
+    }, { onConflict: "store_id,product_id" });
+    if (error) throw error;
+  } else {
+    const { error } = await supabaseAny.from("store_products").delete().eq("store_id", storeId).eq("product_id", productId);
+    if (error) throw error;
+  }
+  await writeAuditLog(actorUserId, storeId, released ? "store_product_released" : "store_product_removed", "product", productId, {});
+}
+
+export async function setAllStoreBrandsReleased(storeId: string, released: boolean, actorUserId: string) {
+  const { data: brands, error } = await supabaseAny.from("brands").select("id").eq("scope", "global").eq("is_hidden", false);
+  if (error) throw error;
+  if (released) {
+    const rows = (brands ?? []).map((brand: any) => ({ store_id: storeId, brand_id: brand.id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId }));
+    if (rows.length) {
+      const { error: upsertError } = await supabaseAny.from("store_brands").upsert(rows, { onConflict: "store_id,brand_id" });
+      if (upsertError) throw upsertError;
+    }
+  } else {
+    const { error: deleteError } = await supabaseAny.from("store_brands").delete().eq("store_id", storeId);
+    if (deleteError) throw deleteError;
+  }
+  await writeAuditLog(actorUserId, storeId, released ? "store_all_brands_released" : "store_all_brands_removed", "store", storeId, {});
+}
+
+export async function setAllStoreProductsReleased(storeId: string, released: boolean, actorUserId: string, brandId?: string) {
+  let query = supabaseAny.from("products").select("id, brand_id").eq("scope", "global").eq("is_hidden", false);
+  if (brandId) query = query.eq("brand_id", brandId);
+  const { data: products, error } = await query;
+  if (error) throw error;
+
+  if (released) {
+    const brandIds = [...new Set((products ?? []).map((product: any) => product.brand_id).filter(Boolean))];
+    if (brandIds.length) {
+      const brandRows = brandIds.map((id) => ({ store_id: storeId, brand_id: id, status: "active", is_active: true, hidden_by_store: false, created_by: actorUserId }));
+      const { error: brandError } = await supabaseAny.from("store_brands").upsert(brandRows, { onConflict: "store_id,brand_id" });
+      if (brandError) throw brandError;
+    }
+    const productRows = (products ?? []).map((product: any) => ({ store_id: storeId, product_id: product.id, status: "active", is_active: true, custom_visibility: true, hidden_by_store: false, created_by: actorUserId }));
+    if (productRows.length) {
+      const { error: productError } = await supabaseAny.from("store_products").upsert(productRows, { onConflict: "store_id,product_id" });
+      if (productError) throw productError;
+    }
+  } else if (brandId) {
+    const ids = (products ?? []).map((product: any) => product.id);
+    if (ids.length) {
+      const { error: deleteError } = await supabaseAny.from("store_products").delete().eq("store_id", storeId).in("product_id", ids);
+      if (deleteError) throw deleteError;
+    }
+  } else {
+    const { error: deleteError } = await supabaseAny.from("store_products").delete().eq("store_id", storeId);
+    if (deleteError) throw deleteError;
+  }
+  await writeAuditLog(actorUserId, storeId, released ? "store_products_released" : "store_products_removed", "store", storeId, { brand_id: brandId ?? null });
 }

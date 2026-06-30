@@ -25,6 +25,7 @@ import {
   isHiddenColumnMissing,
   mergeLocalHiddenState,
 } from '@/lib/catalogVisibility';
+import { getVisibleProductForStore, recordStorePerformanceEvent } from '@/services/storeCatalogService';
 
 type Product = Tables<'products'> & {
   designer_id?: string | null;
@@ -289,6 +290,7 @@ export default function ProductDetailPage() {
   const routeProduct = (location.state as any)?.product as Product | undefined;
 
   const [product, setProduct] = useState<Product | null>(routeProduct ?? null);
+  const [notAvailableForStore, setNotAvailableForStore] = useState(false);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [designer, setDesigner] = useState<Designer | null>(null);
   const [showDesignerInfo, setShowDesignerInfo] = useState(false);
@@ -324,18 +326,33 @@ export default function ProductDetailPage() {
     let cancelled = false;
 
     const fetchProduct = async () => {
-      let prod = routeProduct ?? null;
-      if (!prod) {
-        const { data } = await fetchProductById(productId!);
-        if (cancelled) return;
-        prod = data as Product | null;
-        setProduct(prod);
+      if (storeLoading) return;
+      if (!currentStoreId) {
+        setProduct(null);
+        setNotAvailableForStore(true);
+        setLoading(false);
+        return;
+      }
+
+      let prod = null as Product | null;
+      const visibleProduct = await getVisibleProductForStore(currentStoreId, productId!);
+      if (cancelled) return;
+      prod = visibleProduct as Product | null;
+      if (!prod && routeProduct?.id === productId) {
+        setProduct(null);
+        setNotAvailableForStore(true);
+        setLoading(false);
+        return;
       }
 
       if (!prod) { if (!cancelled) setLoading(false); return; }
+      setNotAvailableForStore(false);
+      setProduct(prod);
+      void recordStorePerformanceEvent(currentStoreId, "product_view", { userId: user?.id ?? null, productId: prod.id, brandId: prod.brand_id });
       if (!isCatalogRecordVisible(prod, getLocalHiddenProductIds())) {
         if (!cancelled) {
           setProduct(null);
+          setNotAvailableForStore(true);
           setLoading(false);
         }
         return;
@@ -383,15 +400,9 @@ export default function ProductDetailPage() {
       // Fetch full product if route state was partial
       if (routeProduct && (!routeProduct.description && !routeProduct.file_3d)) {
         promises.push(
-          fetchProductById(productId!).then(r => {
-            if (!cancelled && r.data) {
-              const fullProd = r.data as Product;
-              setProduct(fullProd);
-              if (fullProd.designer_id && !designer) {
-                (supabase.from('designers' as any) as any).select('id, name, bio, photo_url').eq('id', fullProd.designer_id).single().then((rr: any) => {
-                  if (!cancelled && rr.data) setDesigner(rr.data as Designer);
-                });
-              }
+          getVisibleProductForStore(currentStoreId, productId!).then(fullProd => {
+            if (!cancelled && fullProd) {
+              setProduct(fullProd as Product);
             }
           }) as unknown as Promise<any>,
         );
@@ -648,6 +659,7 @@ export default function ProductDetailPage() {
         toast({ title: 'Erro ao favoritar', description: 'Nao foi possivel salvar este favorito para a loja atual.', variant: 'destructive' });
         return;
       }
+      void recordStorePerformanceEvent(currentStoreId, "product_favorite", { userId: user.id, productId: product.id, brandId: product.brand_id });
       setIsFavorited(true);
       try {
         localStorage.setItem(`onboarding_last_favorite_${user.id}`, product.id);
@@ -698,6 +710,7 @@ export default function ProductDetailPage() {
         detail: { projectId: projId, productId: product.id },
       }));
     } catch { /* noop */ }
+    void recordStorePerformanceEvent(currentStoreId, "product_added_to_project", { userId: user?.id ?? null, productId: product.id, brandId: product.brand_id, metadata: { project_id: projId } });
     setShowProjectMenu(false);
     setShowFinishPicker(false);
     toast({ title: 'Produto adicionado!', description: 'O produto foi adicionado ao projeto.' });
@@ -771,6 +784,20 @@ export default function ProductDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch { /* noop */ }
   }, []);
+
+  if (!loading && notAvailableForStore) {
+    return (
+      <div className="min-h-screen bg-background px-6 py-16">
+        <div className="mx-auto max-w-lg rounded-xl border border-border bg-card p-8 text-center shadow-sm">
+          <h1 className="font-serif text-2xl text-foreground">Produto nao disponivel para esta loja.</h1>
+          <p className="mt-3 text-sm text-muted-foreground">Selecione outro produto do catalogo da loja atual.</p>
+          <Link to="/catalog" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+            Voltar ao catalogo
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !product) {
     return (

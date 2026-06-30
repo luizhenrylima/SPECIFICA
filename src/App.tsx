@@ -42,6 +42,8 @@ import RelationshipPage from "@/pages/RelationshipPage";
 import StoreAdminBrandsPage from "@/pages/store-admin/StoreAdminBrandsPage";
 import StoreAdminDashboardPage from "@/pages/store-admin/StoreAdminDashboardPage";
 import StoreAdminProductsPage from "@/pages/store-admin/StoreAdminProductsPage";
+import StoreAdminQuotesPage from "@/pages/store-admin/StoreAdminQuotesPage";
+import StoreAdminPerformancePage from "@/pages/store-admin/StoreAdminPerformancePage";
 import StoreAdminSettingsPage from "@/pages/store-admin/StoreAdminSettingsPage";
 import StoreAdminUsersPage from "@/pages/store-admin/StoreAdminUsersPage";
 import { FileClock, Package, Settings, ShieldCheck, Tags, Users } from "lucide-react";
@@ -228,6 +230,8 @@ function AppRoutes() {
       <Route path="/gestao/produtos" element={<StoreAdminShell><StoreAdminProductsPage /></StoreAdminShell>} />
       <Route path="/gestao/catalogo" element={<Navigate to="/gestao/produtos" replace />} />
       <Route path="/gestao/marcas" element={<StoreAdminShell><StoreAdminBrandsPage /></StoreAdminShell>} />
+      <Route path="/gestao/cotacoes" element={<StoreAdminShell><StoreAdminQuotesPage /></StoreAdminShell>} />
+      <Route path="/gestao/performance" element={<StoreAdminShell><StoreAdminPerformancePage /></StoreAdminShell>} />
       <Route path="/gestao/configuracoes" element={<StoreAdminShell><StoreAdminSettingsPage /></StoreAdminShell>} />
       <Route path="/rotina/*" element={<RoleRoute area="seller"><Navbar /><OperationsPage /></RoleRoute>} />
       <Route path="/admin" element={<MasterAdminShell><MasterAdminDashboard /></MasterAdminShell>} />
